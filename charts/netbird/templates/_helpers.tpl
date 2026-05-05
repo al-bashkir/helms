@@ -631,3 +631,30 @@ followed by each relays.external[] entry in declared order.
 - {{ . | quote }}
 {{- end }}
 {{- end }}
+
+{{/*
+netbird.relays.relayBackendPortNumber — returns the port number that
+relay routes (HTTPRoute, TCPRoute) should target. When the sidecar is
+deployed, returns server.relaySidecar.listenPort. Otherwise returns the
+main server service port (server.service.port, default 80).
+*/}}
+{{- define "netbird.relays.relayBackendPortNumber" -}}
+  {{- if and .Values.server.config.relays.enabled .Values.server.config.relays.embedded.enabled -}}
+{{ .Values.server.relaySidecar.listenPort }}
+  {{- else -}}
+{{ .Values.server.service.port }}
+  {{- end -}}
+{{- end }}
+
+{{/*
+netbird.relays.relayBackendPortName — returns the named port on the
+server Service that relay Ingress objects should target. "relay" when the
+sidecar is deployed, "http" otherwise.
+*/}}
+{{- define "netbird.relays.relayBackendPortName" -}}
+  {{- if and .Values.server.config.relays.enabled .Values.server.config.relays.embedded.enabled -}}
+relay
+  {{- else -}}
+http
+  {{- end -}}
+{{- end }}

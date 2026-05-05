@@ -69,3 +69,18 @@ tests:
       - equal:
           path: spec.tls[0].secretName
           value: netbird-tls
+
+  - it: should route relay Ingress to relay port when sidecar enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.ingressRelay.enabled: true
+      server.ingressRelay.hosts:
+        - host: netbird.example.com
+          paths:
+            - path: /relay
+              pathType: ImplementationSpecific
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.name
+          value: relay
