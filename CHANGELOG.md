@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **netbird**: Add `server.stunService.nodePort` value to allow specifying a
   fixed NodePort number when `server.stunService.type` is `NodePort`.
+- **netbird**: Configurable `server.config.relays` block in the rendered
+  `config.yaml`. When `relays.enabled=true`, the chart renders the
+  management `relays:` section (which disables the combined-server's
+  built-in relay subcomponent — upstream behavior) and, by default,
+  deploys the standalone `netbirdio/relay` image as a sidecar in the
+  server pod. The sidecar's URL is auto-derived from
+  `server.config.exposedAddress` (override via
+  `relays.embedded.address`) and is appended ahead of any external
+  relays listed in `relays.external`. The chart exposes a new `relay`
+  named port on the server Service and auto-switches
+  `server.ingressRelay` / `server.relayHttpRoute` /
+  `server.relayTcpRoute` backend ports to the sidecar when active. The
+  HMAC secret reuses the existing `server.secrets.authSecret`
+  Kubernetes Secret. Default values keep the current chart behavior
+  unchanged. Fail-fast validation rejects bad URL format, bad
+  `credentialsTTL`, sidecar port collisions, and an external-only mode
+  with relay routes still enabled.
+- **netbird**: New `server.relaySidecar` value block tuning the
+  optional relay sidecar (`image`, `listenPort`, `healthcheckPort`,
+  `resources`, `securityContext`).
 
 ## [0.4.2] — 2026-04-21
 
