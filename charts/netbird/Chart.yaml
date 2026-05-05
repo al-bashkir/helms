@@ -2,7 +2,7 @@ apiVersion: v2
 name: netbird
 description: A Helm chart for deploying NetBird VPN management, signal, dashboard, and relay services on Kubernetes
 type: application
-version: 0.5.1
+version: 0.5.2
 appVersion: "0.68.3"
 keywords:
   - netbird
@@ -30,5 +30,7 @@ annotations:
     - name: Initium
       url: https://github.com/KitStream/initium
   artifacthub.io/changes: |
+    - kind: fixed
+      description: use /health for relay sidecar probes
     - kind: fixed
       description: deconflict relay sidecar metrics port from server's

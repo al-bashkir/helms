@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.5.2] — 2026-05-05
+
 ### Fixed
 
 - **netbird**: Relay sidecar liveness/readiness probes hit the wrong path
