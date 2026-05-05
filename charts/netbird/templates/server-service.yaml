@@ -12,6 +12,12 @@ spec:
       port: {{ .Values.server.service.port }}
       targetPort: http
       protocol: TCP
+{{- if and .Values.server.config.relays.enabled .Values.server.config.relays.embedded.enabled }}
+    - name: relay
+      port: {{ .Values.server.relaySidecar.listenPort }}
+      targetPort: relay
+      protocol: TCP
+{{- end }}
   selector:
     {{- include "netbird.server.selectorLabels" . | nindent 4 }}
 
