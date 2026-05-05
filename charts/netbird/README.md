@@ -382,6 +382,132 @@ server:
 Point DNS at one or more node IPs. Clients will connect on the allocated
 NodePort (check `kubectl get svc` for the assigned port).
 
+## Relay Configuration
+
+The combined `netbirdio/netbird-server` image ships a built-in relay
+subcomponent. By default, the chart leaves the management `relays:`
+block out of the rendered `config.yaml` — peer relay handoff is
+handled internally by the combined server, and the
+`server.secrets.authSecret` Secret signs HMAC credentials.
+
+Use `server.config.relays` when you want to:
+
+- advertise additional **external** relay servers (run separately from
+  this chart) for HA or geo-distributed pools, **and/or**
+- replace the combined server's built-in relay with the **standalone
+  `netbirdio/relay`** image deployed as a sidecar (recommended when you
+  want explicit control over relay scaling and limits).
+
+> **Upstream caveat:** rendering `relays:` in `config.yaml` **disables
+> the combined server's built-in relay subcomponent** (per
+> `combined/config.yaml.example`). The chart compensates by deploying
+> the standalone relay as a sidecar (`relays.embedded.enabled: true`,
+> the default when `relays.enabled` flips to `true`) and auto-switches
+> the relay routes to the sidecar port. If you set
+> `relays.embedded.enabled: false`, you must also disable the relay
+> routes — there is no in-cluster relay backend to receive traffic.
+
+### Sidecar mode (default when enabled)
+
+Adds the `netbirdio/relay` container to the server pod, exposes it on
+the `relay` Service port (33080 by default), and advertises an
+auto-derived URL alongside any external entries.
+
+```yaml
+server:
+  config:
+    exposedAddress: "https://netbird.example.com:443"
+    relays:
+      enabled: true
+      # embedded.enabled: true (default)
+      # external: []          (optional — append additional relays here)
+      # credentialsTTL: "24h" (default)
+```
+
+The advertised URL is derived from `exposedAddress` by swapping the
+scheme to `rels://` and appending `/relay`
+(e.g. `rels://netbird.example.com:443/relay`). Override with
+`relays.embedded.address` if your relay endpoint is on a different host
+or path.
+
+The HMAC secret is the same `server.secrets.authSecret` already used by
+the chart — both `relays.secret` in the rendered config and the
+sidecar's `NB_AUTH_SECRET` environment variable consume the same value.
+
+### Sidecar + external relays
+
+```yaml
+server:
+  config:
+    exposedAddress: "https://netbird.example.com:443"
+    relays:
+      enabled: true
+      external:
+        - "rels://relay-eu.example.com:443/relay"
+        - "rels://relay-us.example.com:443/relay"
+```
+
+External relay servers are run **outside this chart**. Each must use
+the same HMAC secret as `server.secrets.authSecret` for credential
+validation.
+
+### External-only mode
+
+Disables the chart-managed sidecar entirely. Use this when relays are
+operated separately and you only need the management server to
+distribute their URLs.
+
+```yaml
+server:
+  config:
+    exposedAddress: "https://netbird.example.com:443"
+    relays:
+      enabled: true
+      embedded:
+        enabled: false
+      external:
+        - "rels://relay.example.com:443/relay"
+  # Relay routes must also be disabled — there is no in-cluster backend.
+  ingressRelay:
+    enabled: false
+  relayHttpRoute:
+    enabled: false
+  relayTcpRoute:
+    enabled: false
+```
+
+### Sidecar tuning
+
+```yaml
+server:
+  relaySidecar:
+    image:
+      repository: netbirdio/relay
+      tag: ""             # defaults to .Chart.AppVersion
+      pullPolicy: IfNotPresent
+    listenPort: 33080
+    healthcheckPort: 9001
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ALL]
+```
+
+The standalone relay binary's HMAC validator is hardcoded to a 24h
+window — `server.config.relays.credentialsTTL` values longer than 24h
+have no effect on the sidecar. The management still issues credentials
+with the configured TTL, but the sidecar will reject anything older
+than 24h.
+
 ## Personal Access Token (PAT) Seeding
 
 The chart can optionally seed the database with a Personal Access Token
@@ -716,6 +842,11 @@ ADFS) can be tested manually:
 | `server.config.auth.signKeyRefreshEnabled` | bool   | `true`                        | Auto-refresh IdP signing keys                                                         |
 | `server.config.auth.dashboardRedirectURIs` | list   | `[]`                          | Dashboard OAuth2 redirect URIs                                                        |
 | `server.config.auth.cliRedirectURIs`       | list   | `["http://localhost:53000/"]` | CLI redirect URIs                                                                     |
+| `server.config.relays.enabled`             | bool   | `false`                       | Render the management `relays:` block. When true, the combined-server's built-in relay subcomponent is disabled (upstream behavior). |
+| `server.config.relays.embedded.enabled`    | bool   | `true`                        | Deploy the `netbirdio/relay` sidecar in the server pod. Only effective when `relays.enabled` is true. |
+| `server.config.relays.embedded.address`    | string | `""`                          | Override the URL advertised for the sidecar. Empty = auto-derived from `exposedAddress`. |
+| `server.config.relays.external`            | list   | `[]`                          | Additional relay servers to advertise. Each entry must include scheme (`rels://` / `rel://`) and an explicit port. |
+| `server.config.relays.credentialsTTL`      | string | `"24h"`                       | Lifetime of HMAC-signed peer credentials (Go duration). Sidecar's own validator is hardcoded to 24h. |
 
 #### Server Secrets
 
@@ -801,6 +932,18 @@ terminated at the referenced Gateway's listeners, not in these values.
 | `server.relayTcpRoute.rules`        | list   | `[]`    | `TCPRoute.spec.rules`. Defaults to a single rule targeting server Service on port 80. |
 | `server.relayTcpRoute.annotations`  | object | `{}`    | Route annotations                                                                     |
 | `server.relayTcpRoute.labels`       | object | `{}`    | Extra labels                                                                          |
+
+#### Server Relay Sidecar
+
+| Key                                       | Type   | Default             | Description                                                       |
+| ----------------------------------------- | ------ | ------------------- | ----------------------------------------------------------------- |
+| `server.relaySidecar.image.repository`    | string | `"netbirdio/relay"` | Sidecar image repository.                                         |
+| `server.relaySidecar.image.tag`           | string | `""` (appVersion)   | Sidecar image tag.                                                |
+| `server.relaySidecar.image.pullPolicy`    | string | `"IfNotPresent"`    | Image pull policy.                                                |
+| `server.relaySidecar.listenPort`          | int    | `33080`             | Container listen port for the relay WSS endpoint.                 |
+| `server.relaySidecar.healthcheckPort`     | int    | `9001`              | Container healthcheck port (must differ from main server's 9000). |
+| `server.relaySidecar.resources`           | object | `{}`                | Sidecar CPU/memory requests and limits.                           |
+| `server.relaySidecar.securityContext`     | object | `{}`                | Sidecar container security context.                               |
 
 #### Server Pod
 
