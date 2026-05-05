@@ -743,6 +743,18 @@ tests:
             name: relay-metrics
             containerPort: 9091
             protocol: TCP
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.httpGet.port
+          value: relay-health
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet.port
+          value: relay-health
 
   - it: should not include relay sidecar when external-only mode
     set:

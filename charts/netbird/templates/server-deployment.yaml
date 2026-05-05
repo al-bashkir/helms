@@ -288,13 +288,13 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: relay-health
             initialDelaySeconds: 10
             periodSeconds: 15
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: relay-health
             initialDelaySeconds: 5
             periodSeconds: 10

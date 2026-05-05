@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **netbird**: Relay sidecar liveness/readiness probes hit the wrong path
+  (`/healthz`) and received HTTP 404 from the upstream healthcheck server,
+  causing kubelet to restart the container in a loop. Probes now use
+  `/health`, matching the path served by `netbirdio/relay`.
+
 ## [0.5.1] — 2026-05-05
 
 ### Fixed
