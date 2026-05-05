@@ -594,6 +594,33 @@ tests:
       - failedTemplate:
           errorPattern: "relaySidecar.listenPort.*collides"
 
+  - it: should fail when sidecar metricsPort collides with server metricsPort
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.metricsPort: 9090
+    asserts:
+      - failedTemplate:
+          errorPattern: "relaySidecar.metricsPort.*collides with server.config.metricsPort"
+
+  - it: should fail when sidecar metricsPort collides with sidecar listenPort
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.metricsPort: 33080
+    asserts:
+      - failedTemplate:
+          errorPattern: "relaySidecar.listenPort.*collides with server.relaySidecar.metricsPort"
+
+  - it: should fail when sidecar metricsPort collides with sidecar healthcheckPort
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.metricsPort: 9001
+    asserts:
+      - failedTemplate:
+          errorPattern: "relaySidecar.healthcheckPort.*collides with server.relaySidecar.metricsPort"
+
   - it: should fail when external-only mode with relay route still enabled
     set:
       server.config.exposedAddress: "https://netbird.example.com:443"

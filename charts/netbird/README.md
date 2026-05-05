@@ -487,6 +487,7 @@ server:
       pullPolicy: IfNotPresent
     listenPort: 33080
     healthcheckPort: 9001
+    metricsPort: 9091
     resources:
       requests:
         cpu: 50m
@@ -942,6 +943,7 @@ terminated at the referenced Gateway's listeners, not in these values.
 | `server.relaySidecar.image.pullPolicy` | string | `"IfNotPresent"`    | Image pull policy.                                                |
 | `server.relaySidecar.listenPort`       | int    | `33080`             | Container listen port for the relay WSS endpoint.                 |
 | `server.relaySidecar.healthcheckPort`  | int    | `9001`              | Container healthcheck port (must differ from main server's 9000). |
+| `server.relaySidecar.metricsPort`      | int    | `9091`              | Container Prometheus metrics port (must differ from `server.config.metricsPort`, default 9090, since both containers share the pod network namespace). |
 | `server.relaySidecar.resources`        | object | `{}`                | Sidecar CPU/memory requests and limits.                           |
 | `server.relaySidecar.securityContext`  | object | `{}`                | Sidecar container security context.                               |
 

@@ -713,12 +713,16 @@ Rules:
   {{/* Rule 5: sidecar port collisions */}}
   {{- $listen := int .Values.server.relaySidecar.listenPort -}}
   {{- $health := int .Values.server.relaySidecar.healthcheckPort -}}
+  {{- $relayMetrics := int .Values.server.relaySidecar.metricsPort -}}
   {{- $svc := int .Values.server.service.port -}}
   {{- $metrics := int .Values.server.config.metricsPort -}}
   {{- $stun := int .Values.server.stunPort -}}
   {{- $mainHealth := 9000 -}}
   {{- if eq $listen $health -}}
     {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.relaySidecar.healthcheckPort (%d)." $listen $health) -}}
+  {{- end -}}
+  {{- if eq $listen $relayMetrics -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.relaySidecar.metricsPort (%d)." $listen $relayMetrics) -}}
   {{- end -}}
   {{- if eq $listen $svc -}}
     {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.service.port (%d)." $listen $svc) -}}
@@ -732,6 +736,9 @@ Rules:
   {{- if eq $listen $mainHealth -}}
     {{- fail (printf "server.relaySidecar.listenPort (%d) collides with the main server's healthcheck port (%d)." $listen $mainHealth) -}}
   {{- end -}}
+  {{- if eq $health $relayMetrics -}}
+    {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with server.relaySidecar.metricsPort (%d)." $health $relayMetrics) -}}
+  {{- end -}}
   {{- if eq $health $svc -}}
     {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with server.service.port (%d)." $health $svc) -}}
   {{- end -}}
@@ -743,6 +750,18 @@ Rules:
   {{- end -}}
   {{- if eq $health $mainHealth -}}
     {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with the main server's healthcheck port (%d)." $health $mainHealth) -}}
+  {{- end -}}
+  {{- if eq $relayMetrics $svc -}}
+    {{- fail (printf "server.relaySidecar.metricsPort (%d) collides with server.service.port (%d)." $relayMetrics $svc) -}}
+  {{- end -}}
+  {{- if eq $relayMetrics $metrics -}}
+    {{- fail (printf "server.relaySidecar.metricsPort (%d) collides with server.config.metricsPort (%d). Pick a different port for the sidecar — both containers share the pod network namespace." $relayMetrics $metrics) -}}
+  {{- end -}}
+  {{- if eq $relayMetrics $stun -}}
+    {{- fail (printf "server.relaySidecar.metricsPort (%d) collides with server.stunPort (%d)." $relayMetrics $stun) -}}
+  {{- end -}}
+  {{- if eq $relayMetrics $mainHealth -}}
+    {{- fail (printf "server.relaySidecar.metricsPort (%d) collides with the main server's healthcheck port (%d)." $relayMetrics $mainHealth) -}}
   {{- end -}}
 
   {{/* Rule 6: external-only mode + relay route enabled */}}

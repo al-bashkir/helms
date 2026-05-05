@@ -718,6 +718,11 @@ tests:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
+            name: NB_METRICS_PORT
+            value: "9091"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
             name: NB_EXPOSED_ADDRESS
             value: "rels://netbird.example.com:443/relay"
       - contains:
@@ -731,6 +736,12 @@ tests:
           content:
             name: relay-health
             containerPort: 9001
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            name: relay-metrics
+            containerPort: 9091
             protocol: TCP
 
   - it: should not include relay sidecar when external-only mode

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **netbird**: Relay sidecar crash-looping with
+  `failed to start metrics server: listen tcp :9090: bind: address already in use`
+  when `server.config.relays.embedded.enabled=true`. Both the combined
+  server and the `netbirdio/relay` sidecar default to binding `:9090`
+  for Prometheus metrics, and they share the pod network namespace, so
+  the second listener always failed.
+
+### Added
+
+- **netbird**: New `server.relaySidecar.metricsPort` value (default
+  `9091`), passed to the sidecar via the upstream `NB_METRICS_PORT`
+  env var and exposed as a `relay-metrics` named container port.
+  Helper-side validation now also rejects `metricsPort` collisions
+  with the sidecar's `listenPort` / `healthcheckPort`, the server
+  Service port, the server's `metricsPort`, the STUN port, and the
+  server's healthcheck port (`9000`).
+
 ## [0.5.0] — 2026-05-05
 
 ### Added

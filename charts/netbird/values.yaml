@@ -416,6 +416,10 @@ server:
     # -- Container healthcheck port. Must differ from the main server's
     # 9000.
     healthcheckPort: 9001
+    # -- Container Prometheus metrics port. Must differ from the main
+    # server's `server.config.metricsPort` (default 9090) since both
+    # containers share the pod network namespace.
+    metricsPort: 9091
     # -- CPU/memory resource requests and limits.
     resources: {}
     # -- Container security context.

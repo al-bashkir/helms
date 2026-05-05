@@ -262,6 +262,8 @@ spec:
               value: ":{{ .Values.server.relaySidecar.listenPort }}"
             - name: NB_HEALTH_LISTEN_ADDRESS
               value: ":{{ .Values.server.relaySidecar.healthcheckPort }}"
+            - name: NB_METRICS_PORT
+              value: {{ .Values.server.relaySidecar.metricsPort | quote }}
             - name: NB_EXPOSED_ADDRESS
               value: {{ include "netbird.relays.embeddedAddress" . | quote }}
 {{- if $authSecretName }}
@@ -280,6 +282,9 @@ spec:
               protocol: TCP
             - name: relay-health
               containerPort: {{ .Values.server.relaySidecar.healthcheckPort }}
+              protocol: TCP
+            - name: relay-metrics
+              containerPort: {{ .Values.server.relaySidecar.metricsPort }}
               protocol: TCP
           livenessProbe:
             httpGet:
