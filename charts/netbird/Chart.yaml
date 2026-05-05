@@ -2,7 +2,7 @@ apiVersion: v2
 name: netbird
 description: A Helm chart for deploying NetBird VPN management, signal, dashboard, and relay services on Kubernetes
 type: application
-version: 0.4.2
+version: 0.5.0
 appVersion: "0.68.3"
 keywords:
   - netbird
@@ -30,7 +30,9 @@ annotations:
     - name: Initium
       url: https://github.com/KitStream/initium
   artifacthub.io/changes: |
-    - kind: changed
-      description: Bump NetBird from 0.68.2 to 0.68.3
     - kind: added
-      description: Fail-fast validation rejecting exposedAddress without an explicit port
+      description: Configurable server.config.relays block with optional bundled relay sidecar
+    - kind: added
+      description: server.relaySidecar value block tuning the bundled relay sidecar
+    - kind: added
+      description: server.stunService.nodePort to pin the NodePort when stunService.type is NodePort
