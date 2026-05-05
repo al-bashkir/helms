@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.5.1] — 2026-05-05
+
 ### Fixed
 
 - **netbird**: Relay sidecar crash-looping with
