@@ -289,6 +289,14 @@ server:
     engine: {{ include "netbird.database.engine" . | quote }}
     dsn: {{ if eq (include "netbird.database.isExternal" .) "true" }}"{{ include "netbird.database.dsn" . }}"{{ else }}""{{ end }}
     encryptionKey: "${ENCRYPTION_KEY}"
+  {{- if .Values.server.config.relays.enabled }}
+
+  relays:
+    addresses:
+      {{- include "netbird.relays.addresses" . | nindent 6 }}
+    credentialsTTL: {{ include "netbird.escapeEnvsubst" .Values.server.config.relays.credentialsTTL | quote }}
+    secret: "${AUTH_SECRET}"
+  {{- end }}
   {{- if .Values.oidc.enabled }}
 
   http:
@@ -587,4 +595,39 @@ else
 fi
 
 echo "==> API provisioning complete"
+{{- end }}
+
+{{/*
+netbird.relays.embeddedAddress — returns the URL advertised for the
+chart-managed relay sidecar. Returns the user override when
+server.config.relays.embedded.address is set; otherwise derives it from
+server.config.exposedAddress by swapping https:// → rels:// (or http://
+→ rel://), trimming a trailing slash, and appending /relay.
+
+Example: "https://nb.example.com:443" → "rels://nb.example.com:443/relay"
+*/}}
+{{- define "netbird.relays.embeddedAddress" -}}
+  {{- $override := .Values.server.config.relays.embedded.address -}}
+  {{- if $override -}}
+{{ $override }}
+  {{- else -}}
+    {{- $addr := .Values.server.config.exposedAddress -}}
+    {{- $addr = $addr | replace "https://" "rels://" | replace "http://" "rel://" -}}
+    {{- $addr = trimSuffix "/" $addr -}}
+{{ printf "%s/relay" $addr }}
+  {{- end -}}
+{{- end }}
+
+{{/*
+netbird.relays.addresses — emits the YAML list of relay URLs distributed
+to peers. Embedded URL is emitted first when relays.embedded.enabled,
+followed by each relays.external[] entry in declared order.
+*/}}
+{{- define "netbird.relays.addresses" -}}
+{{- if .Values.server.config.relays.embedded.enabled }}
+- {{ include "netbird.relays.embeddedAddress" . | quote }}
+{{- end }}
+{{- range .Values.server.config.relays.external }}
+- {{ . | quote }}
+{{- end }}
 {{- end }}

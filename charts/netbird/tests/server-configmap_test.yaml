@@ -455,3 +455,75 @@ tests:
     asserts:
       - hasDocuments:
           count: 1
+
+  - it: should not render relays block when relays.enabled is false
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "(?m)^\\s*relays:"
+
+  - it: should render relays block with auto-derived embedded address
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "(?m)^\\s*relays:"
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://netbird.example.com:443/relay"
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "credentialsTTL: \"24h\""
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "secret: \"\\$\\{AUTH_SECRET\\}\""
+
+  - it: should respect relays.embedded.address override
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.address: "rels://relay.example.com:443/relay"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://relay.example.com:443/relay"
+      - notMatchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://netbird.example.com:443/relay"
+
+  - it: should append external relays after the embedded URL
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.external:
+        - "rels://relay-eu.example.com:443/relay"
+        - "rels://relay-us.example.com:443/relay"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://netbird.example.com:443/relay"
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://relay-eu.example.com:443/relay"
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://relay-us.example.com:443/relay"
+
+  - it: should render external relays only when embedded sidecar is disabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: false
+      server.config.relays.external:
+        - "rels://relay-eu.example.com:443/relay"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://relay-eu.example.com:443/relay"
+      - notMatchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "rels://netbird.example.com:443/relay"
