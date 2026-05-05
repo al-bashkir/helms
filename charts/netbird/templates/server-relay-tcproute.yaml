@@ -1,15 +1,16 @@
 {{- if .Values.server.relayTcpRoute.enabled }}
 {{- $serviceName := include "netbird.server.fullname" . }}
+{{- $relayPort := int (include "netbird.relays.relayBackendPortNumber" .) }}
 {{- $rules := list }}
 {{- range .Values.server.relayTcpRoute.rules }}
   {{- $rule := deepCopy . }}
   {{- if not (hasKey $rule "backendRefs") }}
-    {{- $_ := set $rule "backendRefs" (list (dict "name" $serviceName "port" 80)) }}
+    {{- $_ := set $rule "backendRefs" (list (dict "name" $serviceName "port" $relayPort)) }}
   {{- end }}
   {{- $rules = append $rules $rule }}
 {{- end }}
 {{- if not $rules }}
-  {{- $rules = list (dict "backendRefs" (list (dict "name" $serviceName "port" 80))) }}
+  {{- $rules = list (dict "backendRefs" (list (dict "name" $serviceName "port" $relayPort))) }}
 {{- end }}
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute

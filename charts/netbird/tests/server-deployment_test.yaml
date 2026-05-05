@@ -681,3 +681,83 @@ tests:
           path: spec.template.spec.containers[0].securityContext
           value:
             readOnlyRootFilesystem: true
+
+  - it: should not include relay sidecar container by default
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: server
+
+  - it: should add relay sidecar container when relays.enabled and embedded.enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: relay
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "^netbirdio/relay:.+$"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: NB_LISTEN_ADDRESS
+            value: ":33080"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: NB_HEALTH_LISTEN_ADDRESS
+            value: ":9001"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: NB_EXPOSED_ADDRESS
+            value: "rels://netbird.example.com:443/relay"
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            name: relay
+            containerPort: 33080
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            name: relay-health
+            containerPort: 9001
+            protocol: TCP
+
+  - it: should not include relay sidecar when external-only mode
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: false
+      server.config.relays.external:
+        - "rels://relay-eu.example.com:443/relay"
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+
+  - it: should reuse server authSecret Secret for relay sidecar NB_AUTH_SECRET
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.secrets.authSecret.secretName: my-existing-secret
+      server.secrets.authSecret.secretKey: hmac
+      server.secrets.authSecret.autoGenerate: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: NB_AUTH_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: my-existing-secret
+                key: hmac

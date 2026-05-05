@@ -52,3 +52,43 @@ tests:
           content:
             app.kubernetes.io/name: netbird
             app.kubernetes.io/component: server
+
+  - it: should not include relay port in service by default
+    asserts:
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - notContains:
+          path: spec.ports
+          content:
+            name: relay
+
+  - it: should include relay port when sidecar is enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.ports
+          count: 2
+      - contains:
+          path: spec.ports
+          content:
+            name: relay
+            port: 33080
+            targetPort: relay
+            protocol: TCP
+
+  - it: should respect custom relaySidecar.listenPort
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.listenPort: 35000
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: relay
+            port: 35000
+            targetPort: relay
+            protocol: TCP

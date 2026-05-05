@@ -36,7 +36,7 @@ spec:
               service:
                 name: {{ include "netbird.server.fullname" $ }}
                 port:
-                  name: http
+                  name: {{ include "netbird.relays.relayBackendPortName" $ }}
     {{- end }}
   {{- end }}
 {{- end }}

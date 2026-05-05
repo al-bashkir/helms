@@ -59,3 +59,28 @@ tests:
       - equal:
           path: spec.rules[0].backendRefs[0].port
           value: 9000
+
+  - it: should default relay TCPRoute backendRefs to port 80 when sidecar disabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.relayTcpRoute.enabled: true
+      server.relayTcpRoute.parentRefs:
+        - name: gw
+          namespace: gw
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 80
+
+  - it: should switch relay TCPRoute backendRefs to sidecar listenPort when sidecar enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relayTcpRoute.enabled: true
+      server.relayTcpRoute.parentRefs:
+        - name: gw
+          namespace: gw
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 33080

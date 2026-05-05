@@ -47,3 +47,42 @@ tests:
       - equal:
           path: spec.rules[0].matches[1].path.value
           value: /ws-proxy
+
+  - it: should default relay HTTPRoute backendRefs to port 80 when sidecar disabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.relayHttpRoute.enabled: true
+      server.relayHttpRoute.parentRefs:
+        - name: gw
+          namespace: gw
+      server.relayHttpRoute.hostnames:
+        - "netbird.example.com"
+      server.relayHttpRoute.rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /relay
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 80
+
+  - it: should switch relay HTTPRoute backendRefs to sidecar listenPort when sidecar enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relayHttpRoute.enabled: true
+      server.relayHttpRoute.parentRefs:
+        - name: gw
+          namespace: gw
+      server.relayHttpRoute.hostnames:
+        - "netbird.example.com"
+      server.relayHttpRoute.rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /relay
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 33080

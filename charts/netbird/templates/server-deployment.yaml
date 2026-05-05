@@ -253,6 +253,55 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
 {{- end }}
+{{- if and .Values.server.config.relays.enabled .Values.server.config.relays.embedded.enabled }}
+        - name: relay
+          image: "{{ .Values.server.relaySidecar.image.repository }}:{{ .Values.server.relaySidecar.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.server.relaySidecar.image.pullPolicy }}
+          env:
+            - name: NB_LISTEN_ADDRESS
+              value: ":{{ .Values.server.relaySidecar.listenPort }}"
+            - name: NB_HEALTH_LISTEN_ADDRESS
+              value: ":{{ .Values.server.relaySidecar.healthcheckPort }}"
+            - name: NB_EXPOSED_ADDRESS
+              value: {{ include "netbird.relays.embeddedAddress" . | quote }}
+{{- if $authSecretName }}
+            - name: NB_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecretName }}
+                  key: {{ .Values.server.secrets.authSecret.secretKey }}
+{{- else }}
+            - name: NB_AUTH_SECRET
+              value: ""
+{{- end }}
+          ports:
+            - name: relay
+              containerPort: {{ .Values.server.relaySidecar.listenPort }}
+              protocol: TCP
+            - name: relay-health
+              containerPort: {{ .Values.server.relaySidecar.healthcheckPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: relay-health
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: relay-health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+{{- with .Values.server.relaySidecar.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+{{- end }}
+{{- with .Values.server.relaySidecar.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+{{- end }}
+{{- end }}
       volumes:
         - name: config-tpl
           configMap:
