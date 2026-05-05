@@ -483,7 +483,7 @@ server:
   relaySidecar:
     image:
       repository: netbirdio/relay
-      tag: ""             # defaults to .Chart.AppVersion
+      tag: "" # defaults to .Chart.AppVersion
       pullPolicy: IfNotPresent
     listenPort: 33080
     healthcheckPort: 9001
@@ -828,25 +828,25 @@ ADFS) can be tested manually:
 
 #### Server Configuration
 
-| Key                                        | Type   | Default                       | Description                                                                           |
-| ------------------------------------------ | ------ | ----------------------------- | ------------------------------------------------------------------------------------- |
-| `server.config.listenAddress`              | string | `":80"`                       | Address and port the server listens on                                                |
-| `server.config.exposedAddress`             | string | `""`                          | Public URL for peer connections — `https://host:port` (port required, see note below) |
-| `server.config.stunPorts`                  | list   | `[3478]`                      | UDP ports for the embedded STUN server                                                |
-| `server.config.metricsPort`                | int    | `9090`                        | Prometheus metrics port                                                               |
-| `server.config.healthcheckAddress`         | string | `":9000"`                     | Health check endpoint address                                                         |
-| `server.config.logLevel`                   | string | `"info"`                      | Log verbosity (debug, info, warn, error)                                              |
-| `server.config.logFile`                    | string | `"console"`                   | Log output destination                                                                |
-| `server.config.dataDir`                    | string | `"/var/lib/netbird"`          | Data directory for state and DB                                                       |
-| `server.config.auth.issuer`                | string | `""`                          | OAuth2/OIDC issuer URL                                                                |
-| `server.config.auth.signKeyRefreshEnabled` | bool   | `true`                        | Auto-refresh IdP signing keys                                                         |
-| `server.config.auth.dashboardRedirectURIs` | list   | `[]`                          | Dashboard OAuth2 redirect URIs                                                        |
-| `server.config.auth.cliRedirectURIs`       | list   | `["http://localhost:53000/"]` | CLI redirect URIs                                                                     |
+| Key                                        | Type   | Default                       | Description                                                                                                                          |
+| ------------------------------------------ | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `server.config.listenAddress`              | string | `":80"`                       | Address and port the server listens on                                                                                               |
+| `server.config.exposedAddress`             | string | `""`                          | Public URL for peer connections — `https://host:port` (port required, see note below)                                                |
+| `server.config.stunPorts`                  | list   | `[3478]`                      | UDP ports for the embedded STUN server                                                                                               |
+| `server.config.metricsPort`                | int    | `9090`                        | Prometheus metrics port                                                                                                              |
+| `server.config.healthcheckAddress`         | string | `":9000"`                     | Health check endpoint address                                                                                                        |
+| `server.config.logLevel`                   | string | `"info"`                      | Log verbosity (debug, info, warn, error)                                                                                             |
+| `server.config.logFile`                    | string | `"console"`                   | Log output destination                                                                                                               |
+| `server.config.dataDir`                    | string | `"/var/lib/netbird"`          | Data directory for state and DB                                                                                                      |
+| `server.config.auth.issuer`                | string | `""`                          | OAuth2/OIDC issuer URL                                                                                                               |
+| `server.config.auth.signKeyRefreshEnabled` | bool   | `true`                        | Auto-refresh IdP signing keys                                                                                                        |
+| `server.config.auth.dashboardRedirectURIs` | list   | `[]`                          | Dashboard OAuth2 redirect URIs                                                                                                       |
+| `server.config.auth.cliRedirectURIs`       | list   | `["http://localhost:53000/"]` | CLI redirect URIs                                                                                                                    |
 | `server.config.relays.enabled`             | bool   | `false`                       | Render the management `relays:` block. When true, the combined-server's built-in relay subcomponent is disabled (upstream behavior). |
-| `server.config.relays.embedded.enabled`    | bool   | `true`                        | Deploy the `netbirdio/relay` sidecar in the server pod. Only effective when `relays.enabled` is true. |
-| `server.config.relays.embedded.address`    | string | `""`                          | Override the URL advertised for the sidecar. Empty = auto-derived from `exposedAddress`. |
-| `server.config.relays.external`            | list   | `[]`                          | Additional relay servers to advertise. Each entry must include scheme (`rels://` / `rel://`) and an explicit port. |
-| `server.config.relays.credentialsTTL`      | string | `"24h"`                       | Lifetime of HMAC-signed peer credentials (Go duration). Sidecar's own validator is hardcoded to 24h. |
+| `server.config.relays.embedded.enabled`    | bool   | `true`                        | Deploy the `netbirdio/relay` sidecar in the server pod. Only effective when `relays.enabled` is true.                                |
+| `server.config.relays.embedded.address`    | string | `""`                          | Override the URL advertised for the sidecar. Empty = auto-derived from `exposedAddress`.                                             |
+| `server.config.relays.external`            | list   | `[]`                          | Additional relay servers to advertise. Each entry must include scheme (`rels://` / `rel://`) and an explicit port.                   |
+| `server.config.relays.credentialsTTL`      | string | `"24h"`                       | Lifetime of HMAC-signed peer credentials (Go duration). Sidecar's own validator is hardcoded to 24h.                                 |
 
 #### Server Secrets
 
@@ -935,15 +935,15 @@ terminated at the referenced Gateway's listeners, not in these values.
 
 #### Server Relay Sidecar
 
-| Key                                       | Type   | Default             | Description                                                       |
-| ----------------------------------------- | ------ | ------------------- | ----------------------------------------------------------------- |
-| `server.relaySidecar.image.repository`    | string | `"netbirdio/relay"` | Sidecar image repository.                                         |
-| `server.relaySidecar.image.tag`           | string | `""` (appVersion)   | Sidecar image tag.                                                |
-| `server.relaySidecar.image.pullPolicy`    | string | `"IfNotPresent"`    | Image pull policy.                                                |
-| `server.relaySidecar.listenPort`          | int    | `33080`             | Container listen port for the relay WSS endpoint.                 |
-| `server.relaySidecar.healthcheckPort`     | int    | `9001`              | Container healthcheck port (must differ from main server's 9000). |
-| `server.relaySidecar.resources`           | object | `{}`                | Sidecar CPU/memory requests and limits.                           |
-| `server.relaySidecar.securityContext`     | object | `{}`                | Sidecar container security context.                               |
+| Key                                    | Type   | Default             | Description                                                       |
+| -------------------------------------- | ------ | ------------------- | ----------------------------------------------------------------- |
+| `server.relaySidecar.image.repository` | string | `"netbirdio/relay"` | Sidecar image repository.                                         |
+| `server.relaySidecar.image.tag`        | string | `""` (appVersion)   | Sidecar image tag.                                                |
+| `server.relaySidecar.image.pullPolicy` | string | `"IfNotPresent"`    | Image pull policy.                                                |
+| `server.relaySidecar.listenPort`       | int    | `33080`             | Container listen port for the relay WSS endpoint.                 |
+| `server.relaySidecar.healthcheckPort`  | int    | `9001`              | Container healthcheck port (must differ from main server's 9000). |
+| `server.relaySidecar.resources`        | object | `{}`                | Sidecar CPU/memory requests and limits.                           |
+| `server.relaySidecar.securityContext`  | object | `{}`                | Sidecar container security context.                               |
 
 #### Server Pod
 
