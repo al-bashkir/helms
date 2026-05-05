@@ -357,6 +357,70 @@ server:
       cliRedirectURIs:
         - "http://localhost:53000/"
 
+    # ── Relays (external + embedded sidecar) ────────────────────────────
+    # Render the management `relays:` block in config.yaml. When the block
+    # is rendered, the netbird-server's built-in relay subcomponent is
+    # disabled (upstream behavior — see
+    # https://github.com/netbirdio/netbird/blob/main/combined/config.yaml.example).
+    # Use `relays.embedded.enabled` to deploy a standalone netbird-relay
+    # sidecar in the server pod that takes its place. Leave
+    # `relays.enabled=false` (default) to keep the legacy combined-server
+    # relay (the current chart behavior — no relays: block rendered, peer
+    # relay handoff is signed via server.secrets.authSecret).
+    relays:
+      # -- Render the `relays:` block in config.yaml. When false, the
+      # management server uses its built-in relay subcomponent (legacy
+      # behavior).
+      enabled: false
+
+      embedded:
+        # -- Deploy the netbird-relay sidecar in the server pod and
+        # advertise its URL alongside any external entries. Disabling the
+        # sidecar with relays.enabled=true switches the deployment to
+        # external-only — peers will not be able to reach a relay served
+        # from this chart.
+        enabled: true
+        # -- Override the URL advertised for the sidecar.
+        # When empty, derived from server.config.exposedAddress by
+        # swapping https:// → rels:// (or http:// → rel://) and appending
+        # /relay. Example: "rels://relay.example.com:443/relay"
+        address: ""
+
+      # -- Additional external relay servers to advertise. Each entry must
+      # include scheme (rels:// or rel://) and an explicit port. Example:
+      #   - "rels://relay-eu.example.com:443/relay"
+      #   - "rels://relay-us.example.com:443/relay"
+      external: []
+
+      # -- Lifetime of HMAC-signed relay credentials issued to peers.
+      # Go duration format (e.g. "24h", "1h30m"). The standalone
+      # netbird-relay sidecar hardcodes its own validator at 24h, so values
+      # longer than 24h have no effect on the sidecar.
+      credentialsTTL: "24h"
+
+  # ── Relay sidecar container ─────────────────────────────────────────
+  # Only deployed when both server.config.relays.enabled and
+  # server.config.relays.embedded.enabled are true.
+  relaySidecar:
+    image:
+      # -- Sidecar image repository.
+      repository: netbirdio/relay
+      # -- Sidecar image tag. Defaults to .Chart.AppVersion when empty so
+      # the sidecar tracks the combined-server image version.
+      tag: ""
+      # -- Image pull policy.
+      pullPolicy: IfNotPresent
+    # -- Container listen port for the relay WSS endpoint. Exposed on the
+    # server Service as the named port "relay".
+    listenPort: 33080
+    # -- Container healthcheck port. Must differ from the main server's
+    # 9000.
+    healthcheckPort: 9001
+    # -- CPU/memory resource requests and limits.
+    resources: {}
+    # -- Container security context.
+    securityContext: {}
+
   # ---------------------------------------------------------------------------
   # Secret references — sensitive config.yaml values
   #
