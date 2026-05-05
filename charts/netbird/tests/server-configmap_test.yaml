@@ -527,3 +527,89 @@ tests:
       - notMatchRegex:
           path: data["config.yaml.tpl"]
           pattern: "rels://netbird.example.com:443/relay"
+
+  - it: should fail when relays.enabled but no addresses (embedded off + empty external)
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: false
+      server.config.relays.external: []
+    asserts:
+      - failedTemplate:
+          errorPattern: "requires at least one address"
+
+  - it: should fail when embedded enabled but no exposedAddress and no override
+    set:
+      server.config.exposedAddress: ""
+      server.config.relays.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "requires server.config.exposedAddress"
+
+  - it: should fail on external relay with bad scheme
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.external:
+        - "https://bad.example.com:443/relay"
+    asserts:
+      - failedTemplate:
+          errorPattern: "must be a rels:// or rel:// URL with explicit port"
+
+  - it: should fail on external relay missing port
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.external:
+        - "rels://nport.example.com/relay"
+    asserts:
+      - failedTemplate:
+          errorPattern: "must be a rels:// or rel:// URL with explicit port"
+
+  - it: should fail on bad credentialsTTL
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.credentialsTTL: "garbage"
+    asserts:
+      - failedTemplate:
+          errorPattern: "credentialsTTL"
+
+  - it: should accept compound credentialsTTL like 1h30m
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.credentialsTTL: "1h30m"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: "credentialsTTL: \"1h30m\""
+
+  - it: should fail when sidecar listenPort collides with main service port
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.listenPort: 80
+    asserts:
+      - failedTemplate:
+          errorPattern: "relaySidecar.listenPort.*collides"
+
+  - it: should fail when external-only mode with relay route still enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: false
+      server.config.relays.external:
+        - "rels://r.example.com:443/relay"
+      server.ingressRelay.enabled: true
+      server.ingressRelay.hosts:
+        - host: netbird.example.com
+          paths:
+            - path: /relay
+              pathType: ImplementationSpecific
+      server.ingressRelay.tls:
+        - secretName: x
+          hosts: [netbird.example.com]
+    asserts:
+      - failedTemplate:
+          errorPattern: "external-only mode"

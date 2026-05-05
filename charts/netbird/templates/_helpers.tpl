@@ -658,3 +658,98 @@ relay
 http
   {{- end -}}
 {{- end }}
+
+{{/*
+netbird.validate.relays — fail-fast validation for the
+server.config.relays block. Returns immediately when relays.enabled is
+false (legacy mode preserves current chart behavior).
+
+Rules:
+  1. At least one address (embedded.enabled OR non-empty external).
+  2. embedded.enabled requires exposedAddress or embedded.address override.
+  3. embedded.address (when set) and every external entry match
+     ^rels?://(host|[ipv6]):port[/path]$.
+  4. credentialsTTL matches Go time.ParseDuration shape.
+  5. relaySidecar listenPort and healthcheckPort don't collide with each
+     other or with service.port / metricsPort / healthcheck (9000) /
+     stunPort.
+  6. External-only mode (embedded.enabled=false) cannot coexist with an
+     enabled relay route — there is no in-cluster relay backend to route to.
+*/}}
+{{- define "netbird.validate.relays" -}}
+{{- if .Values.server.config.relays.enabled -}}
+  {{- $r := .Values.server.config.relays -}}
+
+  {{/* Rule 1: at least one address */}}
+  {{- if and (not $r.embedded.enabled) (not $r.external) -}}
+    {{- fail "server.config.relays.enabled=true requires at least one address — set relays.embedded.enabled=true or add entries to relays.external." -}}
+  {{- end -}}
+
+  {{/* Rule 2: embedded.enabled requires a derivable URL */}}
+  {{- if $r.embedded.enabled -}}
+    {{- if and (not $r.embedded.address) (not .Values.server.config.exposedAddress) -}}
+      {{- fail "server.config.relays.embedded.enabled=true requires server.config.exposedAddress or server.config.relays.embedded.address." -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{/* Rule 3: URL format for embedded.address override and each external entry */}}
+  {{- $urlPattern := `^rels?://(\[[^\]]+\]|[^/:?#]+):[0-9]+([/?#].*)?$` -}}
+  {{- if $r.embedded.address -}}
+    {{- if not (regexMatch $urlPattern $r.embedded.address) -}}
+      {{- fail (printf "server.config.relays.embedded.address %q must be a rels:// or rel:// URL with explicit port (e.g. \"rels://relay.example.com:443/relay\")." $r.embedded.address) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $i, $u := $r.external -}}
+    {{- if not (regexMatch $urlPattern $u) -}}
+      {{- fail (printf "server.config.relays.external[%d] %q must be a rels:// or rel:// URL with explicit port (e.g. \"rels://relay.example.com:443/relay\")." $i $u) -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{/* Rule 4: credentialsTTL Go duration shape */}}
+  {{- if not (regexMatch `^([0-9]+(ns|us|µs|ms|s|m|h))+$` $r.credentialsTTL) -}}
+    {{- fail (printf "server.config.relays.credentialsTTL %q is not a valid Go duration (examples: \"24h\", \"1h30m\", \"15m\")." $r.credentialsTTL) -}}
+  {{- end -}}
+
+  {{/* Rule 5: sidecar port collisions */}}
+  {{- $listen := int .Values.server.relaySidecar.listenPort -}}
+  {{- $health := int .Values.server.relaySidecar.healthcheckPort -}}
+  {{- $svc := int .Values.server.service.port -}}
+  {{- $metrics := int .Values.server.config.metricsPort -}}
+  {{- $stun := int .Values.server.stunPort -}}
+  {{- $mainHealth := 9000 -}}
+  {{- if eq $listen $health -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.relaySidecar.healthcheckPort (%d)." $listen $health) -}}
+  {{- end -}}
+  {{- if eq $listen $svc -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.service.port (%d)." $listen $svc) -}}
+  {{- end -}}
+  {{- if eq $listen $metrics -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.config.metricsPort (%d)." $listen $metrics) -}}
+  {{- end -}}
+  {{- if eq $listen $stun -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with server.stunPort (%d)." $listen $stun) -}}
+  {{- end -}}
+  {{- if eq $listen $mainHealth -}}
+    {{- fail (printf "server.relaySidecar.listenPort (%d) collides with the main server's healthcheck port (%d)." $listen $mainHealth) -}}
+  {{- end -}}
+  {{- if eq $health $svc -}}
+    {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with server.service.port (%d)." $health $svc) -}}
+  {{- end -}}
+  {{- if eq $health $metrics -}}
+    {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with server.config.metricsPort (%d)." $health $metrics) -}}
+  {{- end -}}
+  {{- if eq $health $stun -}}
+    {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with server.stunPort (%d)." $health $stun) -}}
+  {{- end -}}
+  {{- if eq $health $mainHealth -}}
+    {{- fail (printf "server.relaySidecar.healthcheckPort (%d) collides with the main server's healthcheck port (%d)." $health $mainHealth) -}}
+  {{- end -}}
+
+  {{/* Rule 6: external-only mode + relay route enabled */}}
+  {{- if not $r.embedded.enabled -}}
+    {{- if or .Values.server.ingressRelay.enabled .Values.server.relayHttpRoute.enabled .Values.server.relayTcpRoute.enabled -}}
+      {{- fail "server.config.relays is in external-only mode (embedded sidecar disabled) but a relay route (server.ingressRelay / server.relayHttpRoute / server.relayTcpRoute) is enabled — there is no in-cluster relay backend to route to. Disable the relay route or enable relays.embedded." -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
