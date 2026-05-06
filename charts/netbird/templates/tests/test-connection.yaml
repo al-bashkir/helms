@@ -52,6 +52,20 @@ spec:
             echo "PASS: dashboard service is reachable"
           fi
 
+{{- if .Values.server.relaySidecar.tls.enabled }}
+          echo ""
+          echo "==> Testing relay TLS handshake on {{ .Values.server.relaySidecar.listenPort }}..."
+          # busybox lacks openssl; this probe just confirms TCP reachability.
+          # Full TLS handshake is verified in the e2e-relay-tls script.
+          nc -z -w5 {{ include "netbird.server.fullname" . }} {{ .Values.server.relaySidecar.listenPort }} || {
+            echo "FAIL: could not reach relay TLS port {{ .Values.server.relaySidecar.listenPort }}"
+            FAIL=1
+          }
+          if [ "$FAIL" -eq 0 ]; then
+            echo "PASS: relay TLS port reachable"
+          fi
+{{- end }}
+
           echo ""
           if [ "$FAIL" -ne 0 ]; then
             echo "Some tests FAILED"

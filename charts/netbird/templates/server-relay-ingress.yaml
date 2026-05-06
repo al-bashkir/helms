@@ -6,7 +6,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "netbird.server.labels" . | nindent 4 }}
-  {{- with .Values.server.ingressRelay.annotations }}
+  {{- $annotations := deepCopy (default (dict) .Values.server.ingressRelay.annotations) }}
+  {{- if .Values.server.relaySidecar.tls.enabled }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/ssl-passthrough" "true" }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/backend-protocol" "HTTPS" }}
+  {{- end }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

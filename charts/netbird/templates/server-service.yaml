@@ -18,6 +18,12 @@ spec:
       targetPort: relay
       protocol: TCP
 {{- end }}
+{{- if and .Values.server.relaySidecar.tls.enabled (gt (int .Values.server.service.relayQuicUdpPort) 0) }}
+    - name: relay-quic
+      port: {{ .Values.server.service.relayQuicUdpPort }}
+      targetPort: relay-quic
+      protocol: UDP
+{{- end }}
   selector:
     {{- include "netbird.server.selectorLabels" . | nindent 4 }}
 

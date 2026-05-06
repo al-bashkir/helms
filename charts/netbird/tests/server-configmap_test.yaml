@@ -640,3 +640,19 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "external-only mode"
+
+  - it: should force rels:// and port 443 in embedded relay address when TLS enabled
+    set:
+      server.config.exposedAddress: "http://nb.example.com:8080"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - matchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: 'rels://nb\.example\.com:443/relay'
+      - notMatchRegex:
+          path: data["config.yaml.tpl"]
+          pattern: 'rel://nb\.example\.com:8080/relay'

@@ -1,5 +1,6 @@
 ﻿{{- include "netbird.validate.exposedAddress" . -}}
 {{- include "netbird.validate.routeExclusion" . -}}
+{{- include "netbird.validate.relayTls" . -}}
 {{- include "netbird.validate.relays" . -}}
 apiVersion: v1
 kind: ConfigMap

@@ -1,0 +1,83 @@
+suite: server relay UDP service tests
+templates:
+  - templates/server-relay-udp-service.yaml
+release:
+  name: rt
+  namespace: rt
+tests:
+  - it: should not render when disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render LoadBalancer Service when enabled
+    set:
+      server.relayUdpService.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+      - contains:
+          path: spec.ports
+          content:
+            name: relay-quic
+            port: 443
+            targetPort: relay-quic
+            protocol: UDP
+
+  - it: should set nodePort only for NodePort type
+    set:
+      server.relayUdpService.enabled: true
+      server.relayUdpService.type: NodePort
+      server.relayUdpService.nodePort: 30443
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: relay-quic
+            port: 443
+            targetPort: relay-quic
+            protocol: UDP
+            nodePort: 30443
+
+  - it: should not set nodePort for LoadBalancer even if specified
+    set:
+      server.relayUdpService.enabled: true
+      server.relayUdpService.type: LoadBalancer
+      server.relayUdpService.nodePort: 30443
+    asserts:
+      - isNull:
+          path: spec.ports[0].nodePort
+
+  - it: should pass annotations through
+    set:
+      server.relayUdpService.enabled: true
+      server.relayUdpService.annotations:
+        external-dns.alpha.kubernetes.io/hostname: relay.example.com
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            external-dns.alpha.kubernetes.io/hostname: relay.example.com
+
+  - it: should select the server pod
+    set:
+      server.relayUdpService.enabled: true
+    asserts:
+      - isSubset:
+          path: spec.selector
+          content:
+            app.kubernetes.io/name: netbird
+            app.kubernetes.io/component: server
+
+  - it: should suffix the resource name with -relay-udp
+    set:
+      server.relayUdpService.enabled: true
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: "-relay-udp$"
