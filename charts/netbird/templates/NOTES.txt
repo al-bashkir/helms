@@ -54,3 +54,28 @@ Components:
     The plaintext PAT can be retrieved with:
       kubectl get secret {{ .Values.pat.secret.secretName }} -n {{ .Release.Namespace }} -o jsonpath='{.data.{{ .Values.pat.secret.tokenKey }}}' | base64 -d
 {{- end }}
+{{- if .Values.server.relaySidecar.tls.enabled }}
+
+Relay TLS:
+  In-process TLS is ENABLED on the relay sidecar — the QUIC listener is active.
+  Source: {{ .Values.server.relaySidecar.tls.source }}
+{{- if .Values.server.ingressRelay.enabled }}
+  WARNING: server.ingressRelay is enabled with relay TLS. The chart has
+  injected `nginx.ingress.kubernetes.io/ssl-passthrough: "true"`. The
+  nginx-ingress controller MUST be running with `--enable-ssl-passthrough`
+  (otherwise the WSS handshake fails silently). See:
+  https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough
+{{- end }}
+{{- if .Values.server.relayUdpService.enabled }}
+  Relay UDP/QUIC Service: {{ include "netbird.server.fullname" . }}-relay-udp:{{ .Values.server.relayUdpService.port }} ({{ .Values.server.relayUdpService.type }})
+  {{- if eq .Values.server.relayUdpService.type "LoadBalancer" }}
+    Retrieve the relay UDP external IP:
+      kubectl get svc {{ include "netbird.server.fullname" . }}-relay-udp -n {{ .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+  {{- end }}
+{{- else if not .Values.server.relayUdpRoute.enabled }}
+  WARNING: relay TLS is enabled, but no UDP exposure is configured
+  (server.relayUdpService.enabled / server.relayUdpRoute.enabled both
+  off, and server.service.relayQuicUdpPort is 0). Peers will fall back
+  to WSS over TCP — QUIC will not be reachable from outside the cluster.
+{{- end }}
+{{- end }}
