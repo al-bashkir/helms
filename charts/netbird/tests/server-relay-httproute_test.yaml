@@ -86,3 +86,17 @@ tests:
       - equal:
           path: spec.rules[0].backendRefs[0].port
           value: 33080
+
+  - it: should still render normally when relay TLS is disabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relayHttpRoute.enabled: true
+      server.relayHttpRoute.parentRefs:
+        - name: gw
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: HTTPRoute
