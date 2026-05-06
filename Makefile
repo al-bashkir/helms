@@ -1,4 +1,4 @@
-.PHONY: lint unittest e2e e2e-netbird e2e-sqlite e2e-postgres e2e-mysql e2e-gateway e2e-oidc-keycloak e2e-oidc-zitadel e2e-keycloak e2e-keycloak-dev e2e-keycloak-postgres e2e-keycloak-replicas e2e-setup e2e-teardown test compat-matrix
+.PHONY: lint unittest e2e e2e-netbird e2e-sqlite e2e-postgres e2e-mysql e2e-gateway e2e-relay-tls e2e-oidc-keycloak e2e-oidc-zitadel e2e-keycloak e2e-keycloak-dev e2e-keycloak-postgres e2e-keycloak-replicas e2e-setup e2e-teardown test compat-matrix
 
 CHARTS := $(wildcard charts/*)
 
@@ -39,6 +39,9 @@ e2e-mysql: e2e-setup
 e2e-gateway: e2e-setup
 	ci/scripts/netbird/e2e-gateway.sh
 
+e2e-relay-tls: e2e-setup
+	ci/scripts/netbird/e2e-relay-tls.sh
+
 e2e-oidc-keycloak: e2e-setup
 	ci/scripts/netbird/e2e-oidc.sh keycloak
 
@@ -50,6 +53,7 @@ e2e-netbird: e2e-setup
 	ci/scripts/netbird/e2e.sh postgres
 	ci/scripts/netbird/e2e.sh mysql
 	ci/scripts/netbird/e2e-gateway.sh
+	ci/scripts/netbird/e2e-relay-tls.sh
 	ci/scripts/netbird/e2e-oidc.sh keycloak
 	ci/scripts/netbird/e2e-oidc.sh zitadel
 

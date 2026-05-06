@@ -1,0 +1,48 @@
+# E2E values for exercising relay TLS on a kind cluster. Uses
+# ClusterIP for the UDP service since kind has no LoadBalancer
+# implementation. The cert is a self-signed RSA keypair generated
+# by the e2e script and provided as a kubernetes.io/tls Secret.
+
+database:
+  type: sqlite
+
+server:
+  persistentVolume:
+    enabled: false
+
+  stunService:
+    type: ClusterIP
+
+  config:
+    exposedAddress: "https://relay.test:443"
+    relays:
+      enabled: true
+      embedded:
+        enabled: true
+
+  livenessProbe:
+    failureThreshold: 10
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    tcpSocket:
+      port: http
+  readinessProbe:
+    failureThreshold: 10
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    tcpSocket:
+      port: http
+
+  relaySidecar:
+    tls:
+      enabled: true
+      source: secret
+      secret:
+        secretName: relay-tls-selfsigned
+
+  relayUdpService:
+    enabled: true
+    type: ClusterIP
+    port: 443
