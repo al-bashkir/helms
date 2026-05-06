@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **netbird**: Relay sidecar TLS support — `server.relaySidecar.tls.{enabled,source,secret,letsencrypt}` enables in-process TLS so the QUIC listener starts. Sources: an existing `kubernetes.io/tls` Secret (cert-manager-friendly) or the relay's built-in Let's Encrypt client (HTTP-01 or Route53 DNS-01).
+- **netbird**: New top-level `server.relayUdpService` (LoadBalancer / NodePort / ClusterIP UDP Service mirroring `stunService`) and `server.relayUdpRoute` (Gateway API UDPRoute) for exposing relay QUIC on UDP/443.
+- **netbird**: New `server.service.relayQuicUdpPort` to append a UDP port to the main server Service so a single LoadBalancer IP can serve HTTP, relay TCP, and relay QUIC.
+- **netbird**: New `relay-quic` UDP container port on the relay sidecar when TLS is enabled.
+
+### Changed
+
+- **netbird**: When `server.relaySidecar.tls.enabled=true` and `server.ingressRelay.enabled=true`, the chart auto-injects `nginx.ingress.kubernetes.io/ssl-passthrough: "true"` and `nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"` on the relay Ingress. The nginx-ingress controller must run with `--enable-ssl-passthrough` for the WSS handshake to succeed.
+- **netbird**: `embeddedAddress` helper forces `rels://<host>:443/relay` when relay TLS is enabled, regardless of the scheme/port in `server.config.exposedAddress`.
+
+### Security
+
+- **netbird**: Cert/key material mounted read-only as a projected Secret volume; the relay sidecar's `readOnlyRootFilesystem` and `runAsNonRoot` posture is preserved.
+
 ## [0.5.2] — 2026-05-05
 
 ### Fixed

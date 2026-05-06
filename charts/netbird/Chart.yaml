@@ -30,7 +30,11 @@ annotations:
     - name: Initium
       url: https://github.com/KitStream/initium
   artifacthub.io/changes: |
-    - kind: fixed
-      description: use /health for relay sidecar probes
-    - kind: fixed
-      description: deconflict relay sidecar metrics port from server's
+    - kind: added
+      description: Relay sidecar TLS (Secret or Let's Encrypt) — silences QUIC listener warning and enables QUIC for peers
+    - kind: added
+      description: relayUdpService and relayUdpRoute for exposing QUIC/UDP/443
+    - kind: added
+      description: server.service.relayQuicUdpPort to share a LoadBalancer IP across HTTP, relay TCP, and relay QUIC
+    - kind: changed
+      description: nginx ssl-passthrough auto-injected on ingressRelay when relay TLS is enabled
