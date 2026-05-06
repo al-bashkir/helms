@@ -310,18 +310,19 @@ spec:
               containerPort: {{ .Values.server.relaySidecar.listenPort }}
               protocol: UDP
 {{- end }}
+{{- $defLP := dict "initialDelaySeconds" 10 "periodSeconds" 15 }}
+{{- $defRP := dict "initialDelaySeconds" 5  "periodSeconds" 10 }}
+{{- if .Values.server.relaySidecar.tls.enabled }}
+{{- $_ := set $defLP "tcpSocket" (dict "port" "relay") }}
+{{- $_ := set $defRP "tcpSocket" (dict "port" "relay") }}
+{{- else }}
+{{- $_ := set $defLP "httpGet" (dict "path" "/health" "port" "relay-health") }}
+{{- $_ := set $defRP "httpGet" (dict "path" "/health" "port" "relay-health") }}
+{{- end }}
           livenessProbe:
-            httpGet:
-              path: /health
-              port: relay-health
-            initialDelaySeconds: 10
-            periodSeconds: 15
+            {{- toYaml (default $defLP .Values.server.relaySidecar.livenessProbe) | nindent 12 }}
           readinessProbe:
-            httpGet:
-              path: /health
-              port: relay-health
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            {{- toYaml (default $defRP .Values.server.relaySidecar.readinessProbe) | nindent 12 }}
 {{- if .Values.server.relaySidecar.tls.enabled }}
           volumeMounts:
   {{- if eq .Values.server.relaySidecar.tls.source "secret" }}

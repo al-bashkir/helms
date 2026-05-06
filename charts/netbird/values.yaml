@@ -424,6 +424,18 @@ server:
     resources: {}
     # -- Container security context.
     securityContext: {}
+    # -- Liveness probe override for the relay sidecar.
+    # When empty, the chart picks a default based on `tls.enabled`:
+    # - tls.enabled=true  → tcpSocket on the `relay` listen port
+    #   (bootstrap-safe — does not depend on the relay's `/health`
+    #   endpoint being able to dial the publicly advertised URL).
+    # - tls.enabled=false → httpGet `/health` on the `relay-health`
+    #   port (preserves end-to-end /health validation).
+    # Provide a non-empty map to override the default verbatim.
+    livenessProbe: {}
+    # -- Readiness probe override for the relay sidecar.
+    # Same default selection rules as `livenessProbe`.
+    readinessProbe: {}
     # -- TLS configuration for the relay sidecar's WSS+QUIC listener.
     # When enabled, the sidecar listens TLS on `listenPort` for both TCP
     # (WSS) and UDP (QUIC). The advertised relay URL is forced to

@@ -608,6 +608,7 @@ that peers can hit. Pick one of:
 - **No external UDP exposure** — peers fall back to WSS over TCP and QUIC stays unused. Enable `relayUdpService`, `relayUdpRoute`, or `service.relayQuicUdpPort`.
 - **Gateway API HTTPRoute** — HTTPRoute cannot TLS-passthrough; use `relayTcpRoute` for WSS and `relayUdpRoute` for QUIC. The chart hard-fails on `relayHttpRoute.enabled=true` + `relaySidecar.tls.enabled=true`.
 - **Let's Encrypt without persistent storage** — every pod restart re-requests certs; LE blocks the domain after 5 issuances per week.
+- **Relay readiness deadlock during TLS rollout** — the relay binary's `/health` endpoint dials its own publicly advertised URL to validate end-to-end reachability. During a fresh deploy or upgrade to `relaySidecar.tls.enabled=true`, the new pod is not yet `Ready`, so the Service Endpoints either exclude it (LB has no backend) or still point at the previous plain pod (TLS handshake fails with `http: server gave HTTP response to HTTPS client`). The chart now ships a `tcpSocket` probe on the relay listen port by default whenever TLS is enabled. Override `server.relaySidecar.{livenessProbe,readinessProbe}` to restore the `/health` probe once your routing is stable.
 
 ### Migration: enabling TLS on an existing install
 
@@ -617,6 +618,24 @@ peers if your existing `ingressRelay` was edge-terminated:
 1. Confirm your nginx-ingress controller runs with `--enable-ssl-passthrough`.
 2. Roll out the chart upgrade.
 3. Verify the relay container log no longer contains "Not starting QUIC listener" and that the advertised URL is now `rels://`.
+4. The chart now defaults to a `tcpSocket` probe on the `relay` port for the relay sidecar when `relaySidecar.tls.enabled=true`. To restore the deeper `/health` validation after rollout, override:
+
+   ```yaml
+   server:
+     relaySidecar:
+       livenessProbe:
+         httpGet:
+           path: /health
+           port: relay-health
+         initialDelaySeconds: 10
+         periodSeconds: 15
+       readinessProbe:
+         httpGet:
+           path: /health
+           port: relay-health
+         initialDelaySeconds: 5
+         periodSeconds: 10
+   ```
 
 ## Personal Access Token (PAT) Seeding
 
