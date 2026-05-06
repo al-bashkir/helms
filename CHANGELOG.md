@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **netbird**: `server.relaySidecar.livenessProbe` and `server.relaySidecar.readinessProbe` for overriding the relay sidecar's probes (mirrors the existing main-server probe knobs).
+
+### Fixed
+
+- **netbird**: Bootstrap deadlock when `server.relaySidecar.tls.enabled=true`. The chart now defaults the relay sidecar probes to a `tcpSocket` check on the `relay` listen port; the previous `httpGet /health` default depended on the relay's `/health` endpoint being able to dial its own advertised URL via the cluster Service, which fails on a fresh pod whose Service Endpoint is not yet Ready.
+
 ## [0.6.0] — 2026-05-06
 
 ### Added
