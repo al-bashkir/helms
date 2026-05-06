@@ -612,9 +612,15 @@ Example: "https://nb.example.com:443" → "rels://nb.example.com:443/relay"
 {{ $override }}
   {{- else -}}
     {{- $addr := .Values.server.config.exposedAddress -}}
-    {{- $addr = $addr | replace "https://" "rels://" | replace "http://" "rel://" -}}
-    {{- $addr = trimSuffix "/" $addr -}}
+    {{- if .Values.server.relaySidecar.tls.enabled -}}
+      {{- $hostMatches := regexFind `://(\[[^\]]+\]|[^/:?#]+)` $addr -}}
+      {{- $host := $hostMatches | replace "://" "" -}}
+{{ printf "rels://%s:443/relay" $host }}
+    {{- else -}}
+      {{- $addr = $addr | replace "https://" "rels://" | replace "http://" "rel://" -}}
+      {{- $addr = trimSuffix "/" $addr -}}
 {{ printf "%s/relay" $addr }}
+    {{- end -}}
   {{- end -}}
 {{- end }}
 
