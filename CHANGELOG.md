@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.6.0] — 2026-05-06
+
 ### Added
 
 - **netbird**: Relay sidecar TLS support — `server.relaySidecar.tls.{enabled,source,secret,letsencrypt}` enables in-process TLS so the QUIC listener starts. Sources: an existing `kubernetes.io/tls` Secret (cert-manager-friendly) or the relay's built-in Let's Encrypt client (HTTP-01 or Route53 DNS-01).
