@@ -14,11 +14,18 @@ server:
     type: ClusterIP
 
   config:
+    # exposedAddress is required by the validator. The relay sidecar's
+    # healthcheck dials its own advertised URL — but during startup the
+    # Service has no Ready endpoints (Pod is still Pending), so it must
+    # bypass the Service. Use `localhost` so the dial loops back to the
+    # container's own listener; the self-signed cert is generated with a
+    # `localhost` SAN to match.
     exposedAddress: "https://relay.test:443"
     relays:
       enabled: true
       embedded:
         enabled: true
+        address: "rels://localhost:33080/relay"
 
   livenessProbe:
     failureThreshold: 10

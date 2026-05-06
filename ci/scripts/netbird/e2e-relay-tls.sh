@@ -16,6 +16,7 @@ NAMESPACE="netbird-relay-tls-e2e"
 CHART="charts/netbird"
 VALUES_FILE="$CHART/ci/e2e-values-relay-tls.yaml"
 TIMEOUT="10m"
+RELAY_HOST="localhost"
 
 log()  { echo "==> $*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -41,7 +42,8 @@ log "Generating self-signed cert..."
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' RETURN
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-  -subj "/CN=relay.test" \
+  -subj "/CN=relay-e2e" \
+  -addext "subjectAltName=DNS:${RELAY_HOST},IP:127.0.0.1" \
   -keyout "$TMPDIR/tls.key" \
   -out "$TMPDIR/tls.crt"
 
@@ -58,8 +60,35 @@ if ! helm install "$RELEASE" "$CHART" \
   fail "Helm install failed"
 fi
 
-log "Waiting for the server deployment to roll out..."
-kubectl -n "$NAMESPACE" rollout status deployment/"$RELEASE"-server --timeout=300s
+# The relay binary's startup self-test dials its own advertised URL with
+# TLS verification enabled. With a self-signed cert it would refuse to
+# start. Point Go's crypto/x509 at the cert so the loopback dial trusts
+# it. Real users with cert-manager / Let's Encrypt don't need this.
+log "Adding SSL_CERT_FILE to relay sidecar so it trusts the self-signed cert..."
+kubectl -n "$NAMESPACE" set env deployment/"$RELEASE"-server -c relay \
+  SSL_CERT_FILE=/etc/relay-tls/tls.crt
+
+# This e2e exercises ONLY the relay sidecar additions in this chart. The
+# management container in the same pod separately requires outbound
+# internet (pkgs.netbird.io for the GeoIP database) which kind clusters
+# typically lack — its readiness state is irrelevant to the relay TLS
+# surface and is therefore not gated on here.
+log "Waiting for the relay sidecar container to become Ready..."
+for i in $(seq 1 60); do
+  POD=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/component=server \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [ -n "$POD" ]; then
+    READY=$(kubectl -n "$NAMESPACE" get pod "$POD" -o jsonpath='{.status.containerStatuses[?(@.name=="relay")].ready}' 2>/dev/null || true)
+    if [ "$READY" = "true" ]; then
+      log "  relay container Ready ✓"
+      break
+    fi
+  fi
+  if [ "$i" = "60" ]; then
+    fail "relay container did not become Ready within 5 minutes"
+  fi
+  sleep 5
+done
 
 log "Verifying QUIC listener WARN is absent from relay logs..."
 RELAY_LOG=$(kubectl -n "$NAMESPACE" logs deploy/"$RELEASE"-server -c relay --tail=500)
@@ -78,13 +107,26 @@ if ! echo "$PORTS" | grep -qw "relay-quic"; then
 fi
 log "  relay-quic port declared ✓"
 
-log "Verifying TLS handshake on TCP/33080 from inside the cluster..."
+log "Verifying TLS handshake on TCP/33080 via port-forward..."
+# The relay container image is distroless; run openssl from the host
+# against a kubectl port-forward to the pod's relay listener.
 POD=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/component=server -o jsonpath='{.items[0].metadata.name}')
-HS=$(kubectl -n "$NAMESPACE" exec "$POD" -c relay -- /bin/sh -c \
-  'echo | timeout 5 openssl s_client -connect localhost:33080 -servername relay.test 2>&1' || true)
-if ! echo "$HS" | grep -qE "subject=.*CN[ ]*=[ ]*relay.test"; then
+LOCAL_PORT=33180
+kubectl -n "$NAMESPACE" port-forward "pod/$POD" "${LOCAL_PORT}:33080" >/dev/null 2>&1 &
+PF_PID=$!
+trap 'kill $PF_PID 2>/dev/null || true; cleanup' EXIT
+# Wait for port-forward to be listening
+for i in $(seq 1 20); do
+  if (echo > "/dev/tcp/127.0.0.1/${LOCAL_PORT}") 2>/dev/null; then
+    break
+  fi
+  sleep 0.5
+done
+HS=$(echo | timeout 5 openssl s_client -showcerts -connect "127.0.0.1:${LOCAL_PORT}" -servername "${RELAY_HOST}" 2>&1 || true)
+kill $PF_PID 2>/dev/null || true
+if ! echo "$HS" | grep -qE "subject=.*CN[ ]*=[ ]*relay-e2e"; then
   echo "$HS" >&2
-  fail "openssl s_client did not negotiate TLS with the expected CN"
+  fail "openssl s_client did not negotiate TLS with the expected cert"
 fi
 log "  TLS handshake ✓"
 
