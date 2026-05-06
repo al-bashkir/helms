@@ -424,6 +424,41 @@ server:
     resources: {}
     # -- Container security context.
     securityContext: {}
+    # -- TLS configuration for the relay sidecar's WSS+QUIC listener.
+    # When enabled, the sidecar listens TLS on `listenPort` for both TCP
+    # (WSS) and UDP (QUIC). The advertised relay URL is forced to
+    # `rels://<host>:443/relay`. Disabled by default — backwards-compatible.
+    tls:
+      # -- Enable in-process TLS in the relay sidecar. Required to start
+      # the QUIC listener; silences upstream "Not starting QUIC listener"
+      # warning. Also auto-rewrites `ingressRelay` to nginx
+      # `ssl-passthrough` and forces the advertised URL to `rels://`.
+      enabled: false
+      # -- Source of the cert/key material. Options:
+      # `secret` (BYO `kubernetes.io/tls` Secret, e.g. cert-manager) or
+      # `letsencrypt` (sidecar's built-in ACME client).
+      source: secret
+      secret:
+        # -- Name of an existing `kubernetes.io/tls` Secret containing
+        # `tls.crt` and `tls.key`. Required when `source=secret`.
+        secretName: ""
+        # -- Key in the Secret holding the PEM-encoded certificate.
+        certKey: tls.crt
+        # -- Key in the Secret holding the PEM-encoded private key.
+        keyKey: tls.key
+      letsencrypt:
+        # -- Comma-separated FQDNs the relay registers with Let's Encrypt.
+        # Required when `source=letsencrypt`.
+        domains: []
+        # -- ACME registration email. Required when `source=letsencrypt`.
+        email: ""
+        # -- Persistent directory for the LE cert cache. Mounted as a
+        # sub-path on the existing server PVC. Survives pod restarts so
+        # LE rate limits are not exhausted.
+        dataDir: /var/lib/netbird/relay-letsencrypt
+        # -- Use the AWS Route53 DNS-01 challenge instead of HTTP-01.
+        # Sets `NB_LETSENCRYPT_AWS_ROUTE53=true` on the sidecar.
+        awsRoute53: false
 
   # ---------------------------------------------------------------------------
   # Secret references — sensitive config.yaml values
@@ -480,6 +515,12 @@ server:
   service:
     type: ClusterIP
     port: 80
+    # -- Append a UDP port for relay QUIC traffic to the main server
+    # Service. Useful for sharing a single LoadBalancer IP across HTTP,
+    # relay TCP, and relay QUIC. Only meaningful when
+    # `service.type=LoadBalancer` AND `relaySidecar.tls.enabled=true`.
+    # Default `0` disables.
+    relayQuicUdpPort: 0
 
   # -- Dedicated service for the STUN/TURN UDP port.
   # STUN uses UDP which cannot go through a standard HTTP ingress, so this
@@ -591,6 +632,35 @@ server:
     # - backendRefs:
     #     - name: <auto>
     #       port: 80
+    annotations: {}
+    labels: {}
+
+  # -- Dedicated UDP Service for the relay sidecar's QUIC listener.
+  # Mirrors `stunService` — typically `LoadBalancer` so peers can reach
+  # UDP/443 directly. Only meaningful when `relaySidecar.tls.enabled=true`.
+  relayUdpService:
+    # -- Whether to render the dedicated UDP Service.
+    enabled: false
+    # -- Service type. Options: LoadBalancer, NodePort, ClusterIP.
+    type: LoadBalancer
+    # -- Public service port advertised to peers.
+    port: 443
+    # -- Named container port the service targets. Resolved to the
+    # sidecar's `relay-quic` UDP port.
+    targetPort: relay-quic
+    # -- Optional nodePort for NodePort service type (30000–32767).
+    nodePort: null
+    # -- Annotations to set on the Service.
+    annotations: {}
+
+  # -- Gateway API UDPRoute for relay QUIC. Mirrors `relayTcpRoute`.
+  # `backendRefs` are auto-filled from the dedicated UDP Service when
+  # a rule omits them. Requires a Gateway controller that supports
+  # UDPRoute (e.g. Envoy Gateway).
+  relayUdpRoute:
+    enabled: false
+    parentRefs: []
+    rules: []
     annotations: {}
     labels: {}
 
