@@ -784,3 +784,38 @@ tests:
               secretKeyRef:
                 name: my-existing-secret
                 key: hmac
+
+  - it: should not set TLS env vars on relay sidecar by default
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_TLS_CERT_FILE
+      - notContains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_DOMAINS
+
+  - it: should set NB_TLS_CERT_FILE/NB_TLS_KEY_FILE when source=secret
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_TLS_CERT_FILE
+            value: /etc/relay-tls/tls.crt
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_TLS_KEY_FILE
+            value: /etc/relay-tls/tls.key
