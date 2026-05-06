@@ -2,7 +2,7 @@ apiVersion: v2
 name: netbird
 description: A Helm chart for deploying NetBird VPN management, signal, dashboard, and relay services on Kubernetes
 type: application
-version: 0.6.0
+version: 0.7.0
 appVersion: "0.68.3"
 keywords:
   - netbird
@@ -34,11 +34,3 @@ annotations:
       description: server.relaySidecar.livenessProbe and readinessProbe overrides for the relay sidecar
     - kind: fixed
       description: relay sidecar bootstrap deadlock when tls.enabled — chart defaults to a tcpSocket probe on the relay port
-    - kind: added
-      description: Relay sidecar TLS (Secret or Let's Encrypt) — silences QUIC listener warning and enables QUIC for peers
-    - kind: added
-      description: relayUdpService and relayUdpRoute for exposing QUIC/UDP/443
-    - kind: added
-      description: server.service.relayQuicUdpPort to share a LoadBalancer IP across HTTP, relay TCP, and relay QUIC
-    - kind: changed
-      description: nginx ssl-passthrough auto-injected on ingressRelay when relay TLS is enabled
