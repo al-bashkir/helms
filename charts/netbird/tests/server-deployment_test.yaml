@@ -944,3 +944,83 @@ tests:
             name: data
             mountPath: /var/lib/netbird/relay-letsencrypt
             subPath: relay-letsencrypt
+
+  - it: should default relay sidecar probes to tcpSocket on relay port when tls.enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: relay-tls
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.tcpSocket.port
+          value: relay
+      - notExists:
+          path: spec.template.spec.containers[1].livenessProbe.httpGet
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.tcpSocket.port
+          value: relay
+      - notExists:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.initialDelaySeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.periodSeconds
+          value: 15
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.initialDelaySeconds
+          value: 5
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.periodSeconds
+          value: 10
+
+  - it: should let user override relay sidecar livenessProbe
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.livenessProbe:
+        exec:
+          command: ["true"]
+        periodSeconds: 30
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.exec.command[0]
+          value: "true"
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.periodSeconds
+          value: 30
+      - notExists:
+          path: spec.template.spec.containers[1].livenessProbe.httpGet
+      - notExists:
+          path: spec.template.spec.containers[1].livenessProbe.tcpSocket
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet.path
+          value: /health
+
+  - it: should let user restore httpGet /health probe even when tls.enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: relay-tls
+      server.relaySidecar.readinessProbe:
+        httpGet:
+          path: /health
+          port: relay-health
+        initialDelaySeconds: 5
+        periodSeconds: 10
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.httpGet.port
+          value: relay-health
+      - notExists:
+          path: spec.template.spec.containers[1].readinessProbe.tcpSocket
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.tcpSocket.port
+          value: relay
