@@ -1,0 +1,25 @@
+{{- if .Values.server.relayUdpService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "netbird.server.fullname" . }}-relay-udp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "netbird.server.labels" . | nindent 4 }}
+{{- with .Values.server.relayUdpService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.server.relayUdpService.type }}
+  ports:
+    - name: relay-quic
+      port: {{ .Values.server.relayUdpService.port }}
+      targetPort: {{ .Values.server.relayUdpService.targetPort }}
+      protocol: UDP
+      {{- if and (eq .Values.server.relayUdpService.type "NodePort") (not (kindIs "invalid" .Values.server.relayUdpService.nodePort)) }}
+      nodePort: {{ .Values.server.relayUdpService.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "netbird.server.selectorLabels" . | nindent 4 }}
+{{- end }}
