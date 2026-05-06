@@ -1,0 +1,50 @@
+# Example: NetBird relay TLS via cert-manager.
+#
+# Prerequisites:
+#   1. cert-manager installed (https://cert-manager.io/docs/installation/).
+#   2. A ClusterIssuer named `letsencrypt-prod` (or adjust below).
+#   3. DNS for relay.example.com pointing at the relay UDP Service IP
+#      (and at the ingress that fronts WSS, if you also want TCP/443).
+#
+# How it works:
+#   cert-manager creates a `kubernetes.io/tls` Secret named `relay-tls`.
+#   The chart mounts it read-only at /etc/relay-tls in the relay sidecar.
+#   The advertised relay URL becomes rels://relay.example.com:443/relay.
+#
+# Step 1 — create the Certificate (apply this manifest separately, since
+# `helm install -f` reads only chart values from this file):
+#
+#   apiVersion: cert-manager.io/v1
+#   kind: Certificate
+#   metadata:
+#     name: relay-tls
+#     namespace: netbird
+#   spec:
+#     secretName: relay-tls
+#     issuerRef:
+#       name: letsencrypt-prod
+#       kind: ClusterIssuer
+#     dnsNames:
+#       - relay.example.com
+#
+# Step 2 — install the chart with these values:
+#
+#   helm install netbird ./charts/netbird -f examples/netbird-relay-tls-cert-manager.yaml
+
+server:
+  config:
+    exposedAddress: "https://relay.example.com:443"
+    relays:
+      enabled: true
+      embedded:
+        enabled: true
+  relaySidecar:
+    tls:
+      enabled: true
+      source: secret
+      secret:
+        secretName: relay-tls
+  relayUdpService:
+    enabled: true
+    type: LoadBalancer
+    port: 443

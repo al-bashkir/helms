@@ -1,0 +1,37 @@
+# Example: NetBird relay TLS via the relay sidecar's built-in Let's
+# Encrypt client (HTTP-01 challenge).
+#
+# Prerequisites:
+#   1. relay.example.com resolves to a public IP that reaches the relay
+#      WSS listener on TCP/443 (LE HTTP-01 needs reachability on :80
+#      OR :443 — the relay binary terminates the challenge).
+#   2. server.persistentVolume.enabled=true (the cert cache must persist
+#      across pod restarts to avoid LE rate limits).
+#
+# Install:
+#   helm install netbird ./charts/netbird -f examples/netbird-relay-tls-letsencrypt.yaml
+
+server:
+  config:
+    exposedAddress: "https://relay.example.com:443"
+    relays:
+      enabled: true
+      embedded:
+        enabled: true
+  persistentVolume:
+    enabled: true
+    size: 1Gi
+  relaySidecar:
+    tls:
+      enabled: true
+      source: letsencrypt
+      letsencrypt:
+        domains:
+          - relay.example.com
+        email: ops@example.com
+        # dataDir is mounted as a sub-path on the existing server PVC.
+        dataDir: /var/lib/netbird/relay-letsencrypt
+  relayUdpService:
+    enabled: true
+    type: LoadBalancer
+    port: 443
