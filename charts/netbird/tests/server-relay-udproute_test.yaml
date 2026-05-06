@@ -1,0 +1,84 @@
+suite: server relay UDPRoute tests
+templates:
+  - templates/server-relay-udproute.yaml
+release:
+  name: rt
+  namespace: rt
+tests:
+  - it: should not render when disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render UDPRoute when enabled
+    set:
+      server.relayUdpRoute.enabled: true
+      server.relayUdpRoute.parentRefs:
+        - name: gw
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: UDPRoute
+      - isAPIVersion:
+          of: gateway.networking.k8s.io/v1alpha2
+
+  - it: should suffix the resource name with -relay-udp
+    set:
+      server.relayUdpRoute.enabled: true
+      server.relayUdpRoute.parentRefs:
+        - name: gw
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: "-relay-udp$"
+
+  - it: should default to a single backend rule when rules omitted (auto-fill UDP service)
+    set:
+      server.relayUdpService.enabled: true
+      server.relayUdpRoute.enabled: true
+      server.relayUdpRoute.parentRefs:
+        - name: gw
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: rt-netbird-server-relay-udp
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 443
+
+  - it: should pass user backendRefs through
+    set:
+      server.relayUdpRoute.enabled: true
+      server.relayUdpRoute.parentRefs:
+        - name: gw
+      server.relayUdpRoute.rules:
+        - backendRefs:
+            - name: custom
+              port: 1234
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: custom
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 1234
+
+  - it: should pass annotations and labels through
+    set:
+      server.relayUdpRoute.enabled: true
+      server.relayUdpRoute.parentRefs:
+        - name: gw
+      server.relayUdpRoute.annotations:
+        a: b
+      server.relayUdpRoute.labels:
+        c: d
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            a: b
+      - isSubset:
+          path: metadata.labels
+          content:
+            c: d
