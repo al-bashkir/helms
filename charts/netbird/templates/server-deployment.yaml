@@ -282,6 +282,17 @@ spec:
               value: /etc/relay-tls/tls.crt
             - name: NB_TLS_KEY_FILE
               value: /etc/relay-tls/tls.key
+  {{- else if eq .Values.server.relaySidecar.tls.source "letsencrypt" }}
+            - name: NB_LETSENCRYPT_DOMAINS
+              value: {{ join "," .Values.server.relaySidecar.tls.letsencrypt.domains | quote }}
+            - name: NB_LETSENCRYPT_EMAIL
+              value: {{ .Values.server.relaySidecar.tls.letsencrypt.email | quote }}
+            - name: NB_LETSENCRYPT_DATA_DIR
+              value: {{ .Values.server.relaySidecar.tls.letsencrypt.dataDir | quote }}
+    {{- if .Values.server.relaySidecar.tls.letsencrypt.awsRoute53 }}
+            - name: NB_LETSENCRYPT_AWS_ROUTE53
+              value: "true"
+    {{- end }}
   {{- end }}
 {{- end }}
           ports:

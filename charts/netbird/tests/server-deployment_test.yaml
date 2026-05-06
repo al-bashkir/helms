@@ -819,3 +819,53 @@ tests:
           content:
             name: NB_TLS_KEY_FILE
             value: /etc/relay-tls/tls.key
+
+  - it: should set Let's Encrypt env vars when source=letsencrypt
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+        - "relay-eu.example.com"
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_DOMAINS
+            value: "relay.example.com,relay-eu.example.com"
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_EMAIL
+            value: "ops@example.com"
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_DATA_DIR
+            value: /var/lib/netbird/relay-letsencrypt
+      - notContains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_AWS_ROUTE53
+
+  - it: should set NB_LETSENCRYPT_AWS_ROUTE53 when awsRoute53=true
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+      server.relaySidecar.tls.letsencrypt.awsRoute53: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].env
+          content:
+            name: NB_LETSENCRYPT_AWS_ROUTE53
+            value: "true"
