@@ -525,9 +525,9 @@ the chart forces the advertised relay URL to `rels://<host>:443/relay`.
 
 ### When to use which cert source
 
-| Source | Use when |
-|---|---|
-| `secret` | You already manage TLS via cert-manager, an external CA, or `kubectl create secret tls`. The chart mounts the existing `kubernetes.io/tls` Secret read-only. |
+| Source        | Use when                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `secret`      | You already manage TLS via cert-manager, an external CA, or `kubectl create secret tls`. The chart mounts the existing `kubernetes.io/tls` Secret read-only.       |
 | `letsencrypt` | You want zero external tooling; the relay binary handles ACME directly. Requires a publicly reachable host (HTTP-01) or AWS Route53 (DNS-01) and a persistent PVC. |
 
 ### Cert-manager (recommended)
@@ -548,7 +548,7 @@ server:
       enabled: true
       source: secret
       secret:
-        secretName: relay-tls   # cert-manager-managed
+        secretName: relay-tls # cert-manager-managed
   relayUdpService:
     enabled: true
     type: LoadBalancer
@@ -596,10 +596,10 @@ See [`examples/netbird-relay-tls-letsencrypt.yaml`](../../examples/netbird-relay
 QUIC needs UDP reachability — TLS alone does not start a UDP listener
 that peers can hit. Pick one of:
 
-| Option | Values | Notes |
-|---|---|---|
-| Dedicated LoadBalancer | `server.relayUdpService.enabled=true`, `type=LoadBalancer` | Mirrors `stunService`. New external IP per relay. |
-| Gateway API UDPRoute | `server.relayUdpRoute.enabled=true` | Requires a Gateway controller that supports UDPRoute (Envoy Gateway, …). |
+| Option                           | Values                                                                       | Notes                                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Dedicated LoadBalancer           | `server.relayUdpService.enabled=true`, `type=LoadBalancer`                   | Mirrors `stunService`. New external IP per relay.                                                                    |
+| Gateway API UDPRoute             | `server.relayUdpRoute.enabled=true`                                          | Requires a Gateway controller that supports UDPRoute (Envoy Gateway, …).                                             |
 | Shared LB IP on the main Service | `server.service.type=LoadBalancer` and `server.service.relayQuicUdpPort=443` | Reuses the existing LoadBalancer for HTTP + relay TCP + relay QUIC. Only valid when `relaySidecar.tls.enabled=true`. |
 
 ### Failure modes
