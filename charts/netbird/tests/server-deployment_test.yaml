@@ -869,3 +869,78 @@ tests:
           content:
             name: NB_LETSENCRYPT_AWS_ROUTE53
             value: "true"
+
+  - it: should add relay-quic UDP container port when TLS enabled
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].ports
+          content:
+            name: relay-quic
+            containerPort: 33080
+            protocol: UDP
+
+  - it: should not add relay-quic port when TLS disabled
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[?(@.name=='relay')].ports
+          content:
+            name: relay-quic
+
+  - it: should mount the TLS Secret read-only at /etc/relay-tls when source=secret
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+      server.relaySidecar.tls.secret.certKey: cert.pem
+      server.relaySidecar.tls.secret.keyKey: key.pem
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].volumeMounts
+          content:
+            name: relay-tls
+            mountPath: /etc/relay-tls
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: relay-tls
+            secret:
+              secretName: my-tls
+              items:
+                - key: cert.pem
+                  path: tls.crt
+                - key: key.pem
+                  path: tls.key
+
+  - it: should mount the LE cert cache as a sub-path on the data PVC
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.persistentVolume.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name=='relay')].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/netbird/relay-letsencrypt
+            subPath: relay-letsencrypt

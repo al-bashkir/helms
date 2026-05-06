@@ -305,6 +305,11 @@ spec:
             - name: relay-metrics
               containerPort: {{ .Values.server.relaySidecar.metricsPort }}
               protocol: TCP
+{{- if .Values.server.relaySidecar.tls.enabled }}
+            - name: relay-quic
+              containerPort: {{ .Values.server.relaySidecar.listenPort }}
+              protocol: UDP
+{{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -317,6 +322,18 @@ spec:
               port: relay-health
             initialDelaySeconds: 5
             periodSeconds: 10
+{{- if .Values.server.relaySidecar.tls.enabled }}
+          volumeMounts:
+  {{- if eq .Values.server.relaySidecar.tls.source "secret" }}
+            - name: relay-tls
+              mountPath: /etc/relay-tls
+              readOnly: true
+  {{- else if eq .Values.server.relaySidecar.tls.source "letsencrypt" }}
+            - name: data
+              mountPath: {{ .Values.server.relaySidecar.tls.letsencrypt.dataDir }}
+              subPath: relay-letsencrypt
+  {{- end }}
+{{- end }}
 {{- with .Values.server.relaySidecar.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -343,6 +360,16 @@ spec:
             claimName: {{ include "netbird.server.fullname" . }}
 {{- else }}
           emptyDir: {}
+{{- end }}
+{{- if and .Values.server.relaySidecar.tls.enabled (eq .Values.server.relaySidecar.tls.source "secret") }}
+        - name: relay-tls
+          secret:
+            secretName: {{ .Values.server.relaySidecar.tls.secret.secretName }}
+            items:
+              - key: {{ .Values.server.relaySidecar.tls.secret.certKey }}
+                path: tls.crt
+              - key: {{ .Values.server.relaySidecar.tls.secret.keyKey }}
+                path: tls.key
 {{- end }}
 {{- with .Values.server.nodeSelector }}
       nodeSelector:
