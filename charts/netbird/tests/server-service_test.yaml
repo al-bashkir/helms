@@ -92,3 +92,46 @@ tests:
             port: 35000
             targetPort: relay
             protocol: TCP
+
+  - it: should not include relay-quic UDP port by default
+    asserts:
+      - notContains:
+          path: spec.ports
+          content:
+            name: relay-quic
+
+  - it: should include relay-quic UDP port when relayQuicUdpPort > 0 and TLS enabled
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.service.relayQuicUdpPort: 443
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: relay-quic
+            port: 443
+            targetPort: relay-quic
+            protocol: UDP
+
+  - it: should respect a custom relayQuicUdpPort value
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.service.relayQuicUdpPort: 8443
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: relay-quic
+            port: 8443
+            targetPort: relay-quic
+            protocol: UDP
