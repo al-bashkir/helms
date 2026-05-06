@@ -509,6 +509,115 @@ have no effect on the sidecar. The management still issues credentials
 with the configured TTL, but the sidecar will reject anything older
 than 24h.
 
+## Relay TLS (QUIC)
+
+The relay sidecar (`netbirdio/relay`) terminates WSS on TCP and QUIC on
+UDP. Without an in-process TLS keypair, the binary refuses to start its
+QUIC listener and logs a warning on every restart:
+
+```
+WARN relay/server/server.go:74: Not starting QUIC listener: valid TLS config is required for QUIC listener
+```
+
+Enable `server.relaySidecar.tls.enabled=true` to provide cert material.
+The sidecar then listens TLS on `:33080` for **both** WSS and QUIC, and
+the chart forces the advertised relay URL to `rels://<host>:443/relay`.
+
+### When to use which cert source
+
+| Source | Use when |
+|---|---|
+| `secret` | You already manage TLS via cert-manager, an external CA, or `kubectl create secret tls`. The chart mounts the existing `kubernetes.io/tls` Secret read-only. |
+| `letsencrypt` | You want zero external tooling; the relay binary handles ACME directly. Requires a publicly reachable host (HTTP-01) or AWS Route53 (DNS-01) and a persistent PVC. |
+
+### Cert-manager (recommended)
+
+Provision a Certificate that targets a TLS Secret, then point the chart
+at it:
+
+```yaml
+server:
+  config:
+    exposedAddress: "https://relay.example.com:443"
+    relays:
+      enabled: true
+      embedded:
+        enabled: true
+  relaySidecar:
+    tls:
+      enabled: true
+      source: secret
+      secret:
+        secretName: relay-tls   # cert-manager-managed
+  relayUdpService:
+    enabled: true
+    type: LoadBalancer
+    port: 443
+```
+
+See [`examples/netbird-relay-tls-cert-manager.yaml`](../../examples/netbird-relay-tls-cert-manager.yaml).
+
+### Manual TLS Secret
+
+```bash
+kubectl create secret tls relay-tls \
+  --cert=relay.crt --key=relay.key -n netbird
+```
+
+Then set `relaySidecar.tls.secret.secretName=relay-tls`.
+
+### Built-in Let's Encrypt (HTTP-01)
+
+Requires `server.persistentVolume.enabled=true` so the cert cache
+survives pod restarts (the LE rate limit is 5 certs per registered
+domain per week).
+
+```yaml
+server:
+  persistentVolume:
+    enabled: true
+  relaySidecar:
+    tls:
+      enabled: true
+      source: letsencrypt
+      letsencrypt:
+        domains: [relay.example.com]
+        email: ops@example.com
+```
+
+For DNS-01 via AWS Route53, also set
+`relaySidecar.tls.letsencrypt.awsRoute53: true` and configure the AWS
+credentials via the relay sidecar's environment (IRSA, kiam, etc.).
+
+See [`examples/netbird-relay-tls-letsencrypt.yaml`](../../examples/netbird-relay-tls-letsencrypt.yaml).
+
+### Exposing UDP/443 to peers
+
+QUIC needs UDP reachability — TLS alone does not start a UDP listener
+that peers can hit. Pick one of:
+
+| Option | Values | Notes |
+|---|---|---|
+| Dedicated LoadBalancer | `server.relayUdpService.enabled=true`, `type=LoadBalancer` | Mirrors `stunService`. New external IP per relay. |
+| Gateway API UDPRoute | `server.relayUdpRoute.enabled=true` | Requires a Gateway controller that supports UDPRoute (Envoy Gateway, …). |
+| Shared LB IP on the main Service | `server.service.type=LoadBalancer` and `server.service.relayQuicUdpPort=443` | Reuses the existing LoadBalancer for HTTP + relay TCP + relay QUIC. Only valid when `relaySidecar.tls.enabled=true`. |
+
+### Failure modes
+
+- **nginx-ingress without `--enable-ssl-passthrough`** — the chart auto-injects `nginx.ingress.kubernetes.io/ssl-passthrough: "true"` when `ingressRelay.enabled` and `relaySidecar.tls.enabled`. The controller binary itself must run with the `--enable-ssl-passthrough` flag (it is OFF by default), otherwise the annotation is silently ignored and WSS fails after the chart upgrade.
+- **No external UDP exposure** — peers fall back to WSS over TCP and QUIC stays unused. Enable `relayUdpService`, `relayUdpRoute`, or `service.relayQuicUdpPort`.
+- **Gateway API HTTPRoute** — HTTPRoute cannot TLS-passthrough; use `relayTcpRoute` for WSS and `relayUdpRoute` for QUIC. The chart hard-fails on `relayHttpRoute.enabled=true` + `relaySidecar.tls.enabled=true`.
+- **Let's Encrypt without persistent storage** — every pod restart re-requests certs; LE blocks the domain after 5 issuances per week.
+
+### Migration: enabling TLS on an existing install
+
+Enabling `relaySidecar.tls.enabled=true` is a **breaking change** for
+peers if your existing `ingressRelay` was edge-terminated:
+
+1. Confirm your nginx-ingress controller runs with `--enable-ssl-passthrough`.
+2. Roll out the chart upgrade.
+3. Verify the relay container log no longer contains "Not starting QUIC listener" and that the advertised URL is now `rels://`.
+
 ## Personal Access Token (PAT) Seeding
 
 The chart can optionally seed the database with a Personal Access Token
