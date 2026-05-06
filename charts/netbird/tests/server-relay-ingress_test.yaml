@@ -84,3 +84,36 @@ tests:
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.port.name
           value: relay
+
+  - it: should auto-inject ssl-passthrough annotations when relay TLS enabled
+    set:
+      server.config.exposedAddress: "https://netbird.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+      server.ingressRelay.enabled: true
+      server.ingressRelay.hosts:
+        - host: netbird.example.com
+          paths:
+            - path: /relay
+              pathType: ImplementationSpecific
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+            nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+
+  - it: should not inject ssl-passthrough when relay TLS disabled
+    set:
+      server.ingressRelay.enabled: true
+      server.ingressRelay.hosts:
+        - host: netbird.example.com
+          paths:
+            - path: /relay
+              pathType: ImplementationSpecific
+    asserts:
+      - notExists:
+          path: metadata.annotations.nginx\.ingress\.kubernetes\.io/ssl-passthrough
