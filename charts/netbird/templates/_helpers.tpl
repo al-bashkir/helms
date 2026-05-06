@@ -772,3 +772,62 @@ Rules:
   {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+netbird.validate.relayTls — fail-fast validation for the
+server.relaySidecar.tls block, plus the cross-cutting rule for
+server.service.relayQuicUdpPort.
+
+Rules (when relaySidecar.tls.enabled):
+  1. relays.enabled AND relays.embedded.enabled (TLS only applies to
+     the embedded sidecar — nothing in the chart manages a standalone
+     relay yet).
+  2. exposedAddress non-empty (used to derive the `rels://` peer URL).
+  3. relayHttpRoute.enabled MUST be false (Gateway API HTTPRoute cannot
+     TLS-passthrough — punt to relayTcpRoute / relayUdpRoute / TLSRoute).
+  4. source MUST be "secret" or "letsencrypt".
+  5. source=secret -> secret.secretName non-empty.
+  6. source=letsencrypt -> letsencrypt.domains non-empty AND
+     letsencrypt.email non-empty AND persistentVolume.enabled (the LE
+     cert cache must survive pod restarts to avoid LE rate limits).
+
+Independent rule (not gated on tls.enabled):
+  7. server.service.relayQuicUdpPort > 0 requires tls.enabled (the UDP
+     port has no listener otherwise).
+*/}}
+{{- define "netbird.validate.relayTls" -}}
+{{- $tls := .Values.server.relaySidecar.tls -}}
+{{- if $tls.enabled -}}
+  {{- if not (and .Values.server.config.relays.enabled .Values.server.config.relays.embedded.enabled) -}}
+    {{- fail "server.relaySidecar.tls.enabled=true requires server.config.relays.enabled=true and server.config.relays.embedded.enabled=true (TLS only applies to the embedded sidecar)." -}}
+  {{- end -}}
+  {{- if not .Values.server.config.exposedAddress -}}
+    {{- fail "server.relaySidecar.tls.enabled=true requires server.config.exposedAddress (used to derive the rels:// peer URL)." -}}
+  {{- end -}}
+  {{- if .Values.server.relayHttpRoute.enabled -}}
+    {{- fail "server.relayHttpRoute.enabled=true is incompatible with server.relaySidecar.tls.enabled=true — Gateway API HTTPRoute cannot TLS-passthrough. Use server.relayTcpRoute or server.relayUdpRoute, or disable relay TLS." -}}
+  {{- end -}}
+  {{- if eq $tls.source "secret" -}}
+    {{- if not $tls.secret.secretName -}}
+      {{- fail "server.relaySidecar.tls.source=secret requires server.relaySidecar.tls.secret.secretName." -}}
+    {{- end -}}
+  {{- else if eq $tls.source "letsencrypt" -}}
+    {{- if not $tls.letsencrypt.domains -}}
+      {{- fail "server.relaySidecar.tls.source=letsencrypt requires non-empty server.relaySidecar.tls.letsencrypt.domains." -}}
+    {{- end -}}
+    {{- if not $tls.letsencrypt.email -}}
+      {{- fail "server.relaySidecar.tls.source=letsencrypt requires server.relaySidecar.tls.letsencrypt.email." -}}
+    {{- end -}}
+    {{- if not .Values.server.persistentVolume.enabled -}}
+      {{- fail "server.relaySidecar.tls.source=letsencrypt requires server.persistentVolume.enabled=true (the LE cert cache must persist across pod restarts to avoid hitting LE rate limits)." -}}
+    {{- end -}}
+  {{- else -}}
+    {{- fail (printf "server.relaySidecar.tls.source must be \"secret\" or \"letsencrypt\" (got %q)." $tls.source) -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt (int .Values.server.service.relayQuicUdpPort) 0 -}}
+  {{- if not $tls.enabled -}}
+    {{- fail "server.service.relayQuicUdpPort > 0 requires server.relaySidecar.tls.enabled=true (the UDP port has no TLS/QUIC listener otherwise)." -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}

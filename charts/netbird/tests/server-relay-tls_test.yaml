@@ -1,0 +1,142 @@
+suite: relay TLS validation
+templates:
+  - templates/server-configmap.yaml
+release:
+  name: rt
+  namespace: rt
+tests:
+  - it: should pass with TLS disabled (default)
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should fail when tls.enabled but relays.enabled=false
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.enabled=true requires server.config.relays.enabled=true and server.config.relays.embedded.enabled=true (TLS only applies to the embedded sidecar)."
+
+  - it: should fail when tls.enabled but exposedAddress empty
+    set:
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.enabled=true requires server.config.exposedAddress (used to derive the rels:// peer URL)."
+
+  - it: should fail when tls.enabled and relayHttpRoute.enabled
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+      server.relayHttpRoute.enabled: true
+      server.relayHttpRoute.parentRefs:
+        - name: gw
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relayHttpRoute.enabled=true is incompatible with server.relaySidecar.tls.enabled=true — Gateway API HTTPRoute cannot TLS-passthrough. Use server.relayTcpRoute or server.relayUdpRoute, or disable relay TLS."
+
+  - it: should fail when source=secret and secretName empty
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.source=secret requires server.relaySidecar.tls.secret.secretName."
+
+  - it: should fail when source=letsencrypt and domains empty
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.source=letsencrypt requires non-empty server.relaySidecar.tls.letsencrypt.domains."
+
+  - it: should fail when source=letsencrypt and email empty
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.source=letsencrypt requires server.relaySidecar.tls.letsencrypt.email."
+
+  - it: should fail when source=letsencrypt and persistentVolume disabled
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.persistentVolume.enabled: false
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.source=letsencrypt requires server.persistentVolume.enabled=true (the LE cert cache must persist across pod restarts to avoid hitting LE rate limits)."
+
+  - it: should fail when source is invalid
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: vault
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.relaySidecar.tls.source must be \"secret\" or \"letsencrypt\" (got \"vault\")."
+
+  - it: should fail when relayQuicUdpPort > 0 but tls disabled
+    set:
+      server.service.relayQuicUdpPort: 443
+    asserts:
+      - failedTemplate:
+          errorMessage: "server.service.relayQuicUdpPort > 0 requires server.relaySidecar.tls.enabled=true (the UDP port has no TLS/QUIC listener otherwise)."
+
+  - it: should pass with source=secret happy path
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: secret
+      server.relaySidecar.tls.secret.secretName: my-tls
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should pass with source=letsencrypt happy path
+    set:
+      server.config.exposedAddress: "https://nb.example.com:443"
+      server.config.relays.enabled: true
+      server.config.relays.embedded.enabled: true
+      server.relaySidecar.tls.enabled: true
+      server.relaySidecar.tls.source: letsencrypt
+      server.relaySidecar.tls.letsencrypt.domains:
+        - "relay.example.com"
+      server.relaySidecar.tls.letsencrypt.email: "ops@example.com"
+    asserts:
+      - hasDocuments:
+          count: 1
